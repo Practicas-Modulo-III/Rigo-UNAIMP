@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ollama/ollama:latest /bin/ollama /usr/local/bin/ollama
+COPY --from=ollama/ollama:latest /usr/lib/ollama /usr/local/lib/ollama
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
