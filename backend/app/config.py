@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = "9fc84c70ba40e03770a530fc29a5b27aea1573b374a37d37e8ca7408a1858021"
     JWT_EXPIRE_MINUTES: int = 60
 
+    ALLOWED_ORIGINS: str = "http://localhost:5173"
+
+    @property
+    def allowed_origins_list(self) -> list[str]:
+        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
+
     @property
     def llm_provider(self) -> str:
         return "groq" if self.MODO_DEMO_CLOUD else "ollama"

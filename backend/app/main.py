@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="RIGO UNA v1", version="1.0.0", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=settings.allowed_origins_list, allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 for router in (auth.router, chat.router, croquis.router, documents.router, inventory.router, feedback.router, system.router):
     app.include_router(router)
 
