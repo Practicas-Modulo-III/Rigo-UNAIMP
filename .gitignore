@@ -1,0 +1,31 @@
+# Python
+backend/.venv/
+backend/.venv311/
+backend/__pycache__/
+backend/**/__pycache__/
+*.pyc
+
+# Backend runtime data
+backend/chroma_db/
+backend/storage/
+backend/.env
+
+# Node / frontend
+backend/frontend/node_modules/
+backend/frontend/dist/
+backend/frontend/.vite/
+backend/frontend/.vite-temp/
+backend/frontend/*.tsbuildinfo
+
+# Internal planning/spec docs — not shipped in the repo
+documentacion/
+
+# Claude Code local config
+.claude/
+
+# pnpm store
+.pnpm-store/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
