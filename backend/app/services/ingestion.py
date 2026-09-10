@@ -69,13 +69,13 @@ def _ocr_pages(path: str) -> list[tuple[int, str]]:
     return pages
 
 
-def _split_chunks(page_number: int, page_text: str) -> list[tuple[int, int, str]]:
-    """Split a single page into 700/120 chunks, each tagged with its page and sequence index."""
-    chunks: list[tuple[int, int, str]] = []
+def _split_chunks(page_text: str) -> list[tuple[int, str]]:
+    """Split a single page into 700/120 chunks, each tagged with its sequence index."""
+    chunks: list[tuple[int, str]] = []
     for offset, text in enumerate(SPLITTER.split_text(page_text)):
         text = sanitize_utf8(text)
         if text:
-            chunks.append((page_number, offset, text))
+            chunks.append((offset, text))
     return chunks
 
 
@@ -138,7 +138,7 @@ async def process_pdf_ingestion(log_id: int, path: str) -> None:
         pages = extract_text_by_page(path)
         indexed = 0
         for page_number, page_text in pages:
-            for seq, chunk in _split_chunks(page_number, page_text):
+            for seq, chunk in _split_chunks(page_text):
                 vector = await _embed_chunk(embedder, chunk)
                 vector_id = f"{catalog_code}_p{page_number}_s{seq}"
                 metadata = {

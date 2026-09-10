@@ -105,5 +105,5 @@ def list_ingestion_logs(
     return {"count": len(logs), "logs": [{
         "id": log.id, "filename": log.filename, "rights_status": log.rights_status,
         "status": log.status, "detail": log.detail,
-        "created_at": log.created_at.isoformat() if log.created_at else None,
+        "created_at": f"{log.created_at.isoformat()}Z" if log.created_at else None,
     } for log in logs]}
