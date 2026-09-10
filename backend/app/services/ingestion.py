@@ -1,4 +1,5 @@
 ﻿import json
+import traceback
 from pathlib import Path
 
 import chromadb
@@ -162,7 +163,7 @@ async def process_pdf_ingestion(log_id: int, path: str) -> None:
         log = session.get(IngestionLog, log_id)
         if log is not None:
             log.status = "failed"
-            log.detail = f"{type(exc).__name__}: {exc}"
+            log.detail = f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}"
             session.commit()
     finally:
         session.close()
