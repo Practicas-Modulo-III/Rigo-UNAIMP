@@ -1,4 +1,4 @@
-import { Suspense, useLayoutEffect, useMemo, useRef, useState, type ComponentRef, type RefObject } from 'react';
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentRef, type RefObject } from 'react';
 import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -17,6 +17,8 @@ const UNIT = 0.1;
 const ROOM_WIDTH = CANVAS_WIDTH * UNIT;
 const ROOM_DEPTH = CANVAS_HEIGHT * UNIT;
 const HIGHLIGHT_COLOR = '#f43f5e';
+/** Mismo azul que la selección del editor 2D, para que ambas vistas se lean igual. */
+const SELECTION_COLOR = '#38bdf8';
 const SHELF_HEIGHT = 3.1;
 const ROW_COUNT = 4;
 const BOOK_SPACING = 0.42;
@@ -77,17 +79,36 @@ function colorFor(shelf: ShelfNode): string {
   return shelf.metadata?.color ?? PASILLOS_CONFIG.find((c) => c.numero === shelf.pasillo)?.color ?? '#64748b';
 }
 
+/** Centro de una estantería en coordenadas de mundo (x, z), a partir del lienzo 2D de 960x804. */
+function centerOf(shelf: ShelfNode): [number, number] {
+  return [
+    (shelf.x + shelf.width / 2 - CANVAS_WIDTH / 2) * UNIT,
+    (shelf.y + shelf.height / 2 - CANVAS_HEIGHT / 2) * UNIT,
+  ];
+}
+
 function toBoxes(shelves: ShelfNode[]): ShelfBox[] {
   return shelves.map((shelf) => ({
     shelf,
-    center: [
-      (shelf.x + shelf.width / 2 - CANVAS_WIDTH / 2) * UNIT,
-      (shelf.y + shelf.height / 2 - CANVAS_HEIGHT / 2) * UNIT,
-    ],
+    center: centerOf(shelf),
     footprint: [shelf.width * UNIT, shelf.height * UNIT],
     color: colorFor(shelf),
   }));
 }
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+/** Arrastre en curso: qué sección se mueve y el desfase entre el punto agarrado y su centro,
+    para que la estantería no salte al centro del cursor al empezar a arrastrar. */
+interface DragState {
+  id: string;
+  offsetX: number;
+  offsetZ: number;
+}
+
+type StartDragHandler = (shelf: ShelfNode, point: THREE.Vector3) => void;
 
 /** Piso de baldosa clara con juntas sutiles — sala real, no la foto cenital aplanada. */
 function Floor() {
@@ -205,11 +226,14 @@ function BookRows({
 interface BookshelfProps {
   box: ShelfBox;
   isHighlighted: boolean;
+  isSelected?: boolean;
+  editable?: boolean;
   onSelect?: (shelf: ShelfNode) => void;
+  onStartDrag?: StartDragHandler;
 }
 
 /** Estantería real: armazón de madera + tablas + libros instanciados + rótulo 3D — nada de cajas planas. */
-function Bookshelf({ box, isHighlighted, onSelect }: BookshelfProps) {
+function Bookshelf({ box, isHighlighted, isSelected = false, editable = false, onSelect, onStartDrag }: BookshelfProps) {
   const [hovered, setHovered] = useState(false);
   const { shelf, center, footprint, color } = box;
   const [sizeX, sizeZ] = footprint;
@@ -219,7 +243,7 @@ function Bookshelf({ box, isHighlighted, onSelect }: BookshelfProps) {
   // El lado abierto (donde van los libros) mira hacia el centro de la sala, no hacia la pared.
   const openSign = lengthAxis === 'x' ? (center[1] <= 0 ? 1 : -1) : (center[0] <= 0 ? 1 : -1);
   const signRotationY = lengthAxis === 'x' ? (openSign > 0 ? 0 : Math.PI) : (openSign > 0 ? Math.PI / 2 : -Math.PI / 2);
-  const activeColor = isHighlighted ? HIGHLIGHT_COLOR : color;
+  const activeColor = isHighlighted ? HIGHLIGHT_COLOR : isSelected ? SELECTION_COLOR : color;
   const codeTexture = useMemo(() => makeTextTexture(shelf.code), [shelf.code]);
 
   // El armazón sólido solo ocupa la mitad trasera (contra la pared): si llenara toda la
@@ -249,10 +273,15 @@ function Bookshelf({ box, isHighlighted, onSelect }: BookshelfProps) {
       <mesh
         position={[0, SHELF_HEIGHT / 2, 0]}
         onClick={handleClick}
+        onPointerDown={(event) => {
+          if (!editable) return;
+          event.stopPropagation();
+          onStartDrag?.(shelf, event.point);
+        }}
         onPointerOver={(event) => {
           event.stopPropagation();
           setHovered(true);
-          document.body.style.cursor = 'pointer';
+          document.body.style.cursor = editable ? 'grab' : 'pointer';
         }}
         onPointerOut={() => {
           setHovered(false);
@@ -262,6 +291,14 @@ function Bookshelf({ box, isHighlighted, onSelect }: BookshelfProps) {
         <boxGeometry args={hitboxSize} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
+
+      {/* Realce de selección pintado en el piso: se ve desde la cámara cenital sin tapar la estantería. */}
+      {isSelected ? (
+        <mesh rotation-x={-Math.PI / 2} position={[0, 0.05, 0]}>
+          <planeGeometry args={[sizeX + 0.7, sizeZ + 0.7]} />
+          <meshBasicMaterial color={SELECTION_COLOR} transparent opacity={0.45} depthWrite={false} />
+        </mesh>
+      ) : null}
 
       {/* Armazón: madera oscura sólida contra la pared — le da el volumen que faltaba. */}
       <mesh position={carcassPosition} castShadow receiveShadow>
@@ -297,7 +334,7 @@ function Bookshelf({ box, isHighlighted, onSelect }: BookshelfProps) {
         <meshStandardMaterial
           color={activeColor}
           emissive={activeColor}
-          emissiveIntensity={isHighlighted ? 0.9 : hovered ? 0.5 : 0.25}
+          emissiveIntensity={isHighlighted ? 0.9 : isSelected ? 0.8 : hovered ? 0.5 : 0.25}
         />
       </mesh>
 
@@ -314,7 +351,7 @@ function Bookshelf({ box, isHighlighted, onSelect }: BookshelfProps) {
         <meshBasicMaterial map={codeTexture} transparent toneMapped={false} />
       </mesh>
 
-      {(isHighlighted || hovered) && shelf.pasillo > 0 ? (
+      {(isHighlighted || isSelected || hovered) && shelf.pasillo > 0 ? (
         <Html position={[0, SHELF_HEIGHT + 1.1, 0]} center distanceFactor={55} zIndexRange={[20, 0]} occlude>
           <span
             className={
@@ -331,14 +368,52 @@ function Bookshelf({ box, isHighlighted, onSelect }: BookshelfProps) {
   );
 }
 
-/** Mueble bajo del área de archivo (pasillo 0) — cajonera simple, sin libros. */
-function ArchiveCabinet({ box }: { box: ShelfBox }) {
-  const { center, footprint } = box;
+/** Mueble bajo del área de archivo (pasillo 0) — cajonera simple, sin libros.
+    Las secciones nuevas nacen en el pasillo 0, así que en modo edición también se arrastran. */
+function ArchiveCabinet({
+  box,
+  isSelected = false,
+  editable = false,
+  onStartDrag,
+}: {
+  box: ShelfBox;
+  isSelected?: boolean;
+  editable?: boolean;
+  onStartDrag?: StartDragHandler;
+}) {
+  const { shelf, center, footprint } = box;
   return (
     <group position={[center[0], 0, center[1]]}>
+      {editable ? (
+        <mesh
+          position={[0, 0.8, 0]}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            onStartDrag?.(shelf, event.point);
+          }}
+          onPointerOver={(event) => {
+            event.stopPropagation();
+            document.body.style.cursor = 'grab';
+          }}
+          onPointerOut={() => {
+            document.body.style.cursor = 'auto';
+          }}
+        >
+          <boxGeometry args={[footprint[0], 1.6, footprint[1]]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      ) : null}
+
+      {isSelected ? (
+        <mesh rotation-x={-Math.PI / 2} position={[0, 0.05, 0]}>
+          <planeGeometry args={[footprint[0] + 0.7, footprint[1] + 0.7]} />
+          <meshBasicMaterial color={SELECTION_COLOR} transparent opacity={0.45} depthWrite={false} />
+        </mesh>
+      ) : null}
+
       <mesh position={[0, 0.75, 0]}>
         <boxGeometry args={[footprint[0] * 0.96, 1.5, footprint[1] * 0.96]} />
-        <meshStandardMaterial color="#334155" roughness={0.6} metalness={0.2} />
+        <meshStandardMaterial color={isSelected ? SELECTION_COLOR : '#334155'} roughness={0.6} metalness={0.2} />
       </mesh>
       <mesh position={[0, 1.55, 0]}>
         <boxGeometry args={[footprint[0] * 0.98, 0.1, footprint[1] * 0.98]} />
@@ -417,6 +492,11 @@ interface Croquis3DViewerProps {
   highlightPasillo?: number | null;
   highlightEstante?: string | null;
   onSelectShelf?: (pasillo: number, estante: string, category: string) => void;
+  /** Modo administrador: permite arrastrar las secciones sobre el piso. */
+  editable?: boolean;
+  selectedId?: string | null;
+  onSelectId?: (id: string | null) => void;
+  onMoveShelf?: (id: string, x: number, y: number) => void;
 }
 
 export function Croquis3DViewer({
@@ -424,12 +504,54 @@ export function Croquis3DViewer({
   highlightPasillo = null,
   highlightEstante = null,
   onSelectShelf,
+  editable = false,
+  selectedId = null,
+  onSelectId,
+  onMoveShelf,
 }: Croquis3DViewerProps) {
   const data = shelves ?? INITIAL_SHELVES;
   const boxes = useMemo(() => toBoxes(data), [data]);
   const shelfBoxes = boxes.filter((box) => box.shelf.pasillo > 0);
   const archiveBoxes = boxes.filter((box) => box.shelf.pasillo === 0);
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
+
+  const startDrag = useCallback<StartDragHandler>((shelf, point) => {
+    const [centerX, centerZ] = centerOf(shelf);
+    setDrag({ id: shelf.id, offsetX: centerX - point.x, offsetZ: centerZ - point.z });
+    onSelectId?.(shelf.id);
+    // También por ref, no solo por prop: OrbitControls ya recibió este mismo pointerdown y
+    // empezaría a girar la cámara durante el frame que falta para que `enabled` se aplique.
+    if (controlsRef.current) controlsRef.current.enabled = false;
+  }, [onSelectId]);
+
+  const endDrag = useCallback(() => {
+    setDrag(null);
+    if (controlsRef.current) controlsRef.current.enabled = true;
+  }, []);
+
+  // Red de seguridad: si se suelta el botón fuera del lienzo, el pointerup nunca llega a la
+  // escena y la sección quedaría pegada al cursor.
+  useEffect(() => {
+    if (!drag) return undefined;
+    window.addEventListener('pointerup', endDrag);
+    return () => window.removeEventListener('pointerup', endDrag);
+  }, [drag, endDrag]);
+
+  /** Traduce el punto del piso bajo el cursor a coordenadas del lienzo 2D (960x804), acotadas
+      a la sala: 3D y 2D comparten el mismo layout, así que mover aquí mueve allá. */
+  const dragTo = useCallback((point: THREE.Vector3) => {
+    if (!drag || !onMoveShelf) return;
+    const shelf = data.find((item) => item.id === drag.id);
+    if (!shelf) return;
+    const x = (point.x + drag.offsetX) / UNIT + CANVAS_WIDTH / 2 - shelf.width / 2;
+    const y = (point.z + drag.offsetZ) / UNIT + CANVAS_HEIGHT / 2 - shelf.height / 2;
+    onMoveShelf(
+      shelf.id,
+      Math.round(clamp(x, 0, CANVAS_WIDTH - shelf.width)),
+      Math.round(clamp(y, 0, CANVAS_HEIGHT - shelf.height)),
+    );
+  }, [drag, data, onMoveShelf]);
 
   const isHighlighted = (shelf: ShelfNode) =>
     highlightPasillo != null &&
@@ -452,11 +574,23 @@ export function Croquis3DViewer({
   ];
 
   return (
-    <div className="relative w-full overflow-hidden rounded-xl border border-slate-800 bg-slate-950 shadow-lg">
+    <div
+      className={
+        'relative w-full overflow-hidden rounded-xl border border-slate-800 bg-slate-950 shadow-lg' +
+        (drag ? ' cursor-grabbing' : '')
+      }
+    >
       <div className="aspect-[960/804] w-full">
         {/* Cámara a ~105 unidades: con fov 45 y lienzo 1.194:1 el campo visible mide ~103 x 87
             unidades, justo lo necesario para encuadrar la sala de 96 x 80.4 con un margen mínimo. */}
-        <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 73, 75], fov: 45, near: 0.1, far: 500 }}>
+        <Canvas
+          shadows
+          dpr={[1, 2]}
+          camera={{ position: [0, 73, 75], fov: 45, near: 0.1, far: 500 }}
+          onPointerMissed={() => {
+            if (editable && !drag) onSelectId?.(null);
+          }}
+        >
           <color attach="background" args={['#0b1220']} />
           <hemisphereLight intensity={0.5} groundColor="#0f172a" />
           <ambientLight intensity={0.4} />
@@ -482,13 +616,39 @@ export function Croquis3DViewer({
               key={box.shelf.id}
               box={box}
               isHighlighted={isHighlighted(box.shelf)}
+              isSelected={selectedId === box.shelf.id}
+              editable={editable}
               onSelect={(shelf) => onSelectShelf?.(shelf.pasillo, shelf.estante, shelf.category)}
+              onStartDrag={startDrag}
             />
           ))}
 
           {archiveBoxes.map((box) => (
-            <ArchiveCabinet key={box.shelf.id} box={box} />
+            <ArchiveCabinet
+              key={box.shelf.id}
+              box={box}
+              isSelected={selectedId === box.shelf.id}
+              editable={editable}
+              onStartDrag={startDrag}
+            />
           ))}
+
+          {/* Plano de arrastre: solo existe mientras se mueve una sección. Es invisible pero
+              opaco al rayo (opacity 0 en vez de visible={false}, que anularía el raycast) y
+              mucho más grande que la sala, para que el puntero nunca se salga de él. */}
+          {drag ? (
+            <mesh
+              rotation-x={-Math.PI / 2}
+              onPointerMove={(event) => {
+                event.stopPropagation();
+                dragTo(event.point);
+              }}
+              onPointerUp={endDrag}
+            >
+              <planeGeometry args={[ROOM_WIDTH * 4, ROOM_DEPTH * 4]} />
+              <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+            </mesh>
+          ) : null}
 
           {tables.map((position, index) => (
             <ReadingTable key={index} position={position} />
@@ -496,6 +656,7 @@ export function Croquis3DViewer({
 
           <OrbitControls
             ref={controlsRef}
+            enabled={!drag}
             enableDamping
             dampingFactor={0.08}
             minDistance={20}
@@ -508,8 +669,16 @@ export function Croquis3DViewer({
       </div>
 
       <span className="pointer-events-none absolute bottom-3 left-3 rounded-full bg-slate-950/80 px-3 py-1 text-[11px] font-medium text-slate-300 ring-1 ring-inset ring-slate-700">
-        Arrastra para girar · rueda para acercar · clic en una estantería
+        {editable
+          ? 'Arrastra una sección para moverla · gira con el fondo · rueda para acercar'
+          : 'Arrastra para girar · rueda para acercar · clic en una estantería'}
       </span>
+
+      {editable ? (
+        <span className="pointer-events-none absolute right-3 top-3 rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-400 ring-1 ring-inset ring-amber-500/40">
+          Modo edición 3D
+        </span>
+      ) : null}
     </div>
   );
 }

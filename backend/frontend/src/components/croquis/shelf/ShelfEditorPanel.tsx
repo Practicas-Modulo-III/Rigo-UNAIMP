@@ -9,8 +9,10 @@ interface ShelfEditorPanelProps {
   onClose: () => void;
 }
 
-const field = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500';
-const label = 'text-xs font-medium text-slate-400';
+const field =
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 ' +
+  'dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500';
+const label = 'text-xs font-medium text-slate-500 dark:text-slate-400';
 
 export function ShelfEditorPanel({ shelf, onChange, onDelete, onClose }: ShelfEditorPanelProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -18,10 +20,10 @@ export function ShelfEditorPanel({ shelf, onChange, onDelete, onClose }: ShelfEd
   const update = (updates: Partial<ShelfNode>) => onChange(shelf.id, updates);
 
   return (
-    <aside className="w-full shrink-0 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:w-72">
+    <aside className="w-full shrink-0 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900 sm:w-72">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-bold text-white">Editar sección</h3>
-        <button type="button" onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white" aria-label="Cerrar edición">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Editar sección</h3>
+        <button type="button" onClick={onClose} className="rounded-lg p-1 text-slate-500 hover:bg-slate-200 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white" aria-label="Cerrar edición">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -124,8 +126,8 @@ export function ShelfEditorPanel({ shelf, onChange, onDelete, onClose }: ShelfEd
 
         {confirmDelete ? (
           <div className="flex items-center gap-2 rounded-lg border border-rose-500/40 bg-rose-500/10 p-2">
-            <p className="flex-1 text-xs text-rose-300">¿Eliminar esta sección del croquis?</p>
-            <button type="button" onClick={() => setConfirmDelete(false)} className="rounded px-2 py-1 text-xs text-slate-300 hover:bg-slate-800">
+            <p className="flex-1 text-xs text-rose-600 dark:text-rose-300">¿Eliminar esta sección del croquis?</p>
+            <button type="button" onClick={() => setConfirmDelete(false)} className="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800">
               Cancelar
             </button>
             <button type="button" onClick={() => onDelete(shelf.id)} className="rounded bg-rose-500 px-2 py-1 text-xs font-semibold text-white hover:bg-rose-400">
