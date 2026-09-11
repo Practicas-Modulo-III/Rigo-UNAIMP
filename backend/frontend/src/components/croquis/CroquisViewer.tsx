@@ -71,7 +71,7 @@ export function CroquisViewer({
   }, []);
 
   return (
-    <div ref={containerRef} className="w-full overflow-hidden rounded-xl border border-slate-800 bg-slate-950 shadow-lg dark:border-slate-800">
+    <div ref={containerRef} className="w-full overflow-hidden rounded-xl border border-slate-300 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-950">
       <div className="relative" style={{ width: CANVAS_WIDTH * scale, height: CANVAS_HEIGHT * scale }}>
         {/* Stage debe recibir el tamaño YA escalado: si se le pasa el tamaño nativo (960x804)
             y solo se escala el contenido vía scaleX/scaleY, el <canvas> real sigue siendo
@@ -101,7 +101,7 @@ export function CroquisViewer({
               className={
                 'pointer-events-none absolute inline-flex -translate-y-1/2 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold shadow-lg ring-1 ring-inset transition-all ' +
                 anchor +
-                (isActive ? ' bg-rose-500 text-white ring-rose-300/60' : ' bg-slate-950/85 ring-slate-700')
+                (isActive ? ' bg-rose-500 text-white ring-rose-300/60' : ' bg-white/90 ring-slate-300 dark:bg-slate-950/85 dark:ring-slate-700')
               }
               style={{ left: `${pin.leftPercent}%`, top: `${pin.topPercent}%`, color: isActive ? undefined : pin.color }}
             >

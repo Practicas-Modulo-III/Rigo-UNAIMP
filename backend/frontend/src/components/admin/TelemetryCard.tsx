@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Cpu, HardDrive, Database, Server, Activity, AlertTriangle, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
+import { apiFetch } from '@/services/api';
 
 export interface SystemMetrics {
   cpu_percent: number;
@@ -34,9 +35,7 @@ export function TelemetryCard({ authToken, autoRefresh = true, refreshInterval =
   const fetchMetrics = useCallback(async () => {
     if (!authToken) return;
     try {
-      const res = await fetch('/api/system/metrics', {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
+      const res = await apiFetch('/api/system/metrics');
       if (res.ok) {
         const data = await res.json();
         setMetrics(data);
@@ -162,7 +161,7 @@ export function TelemetryCard({ authToken, autoRefresh = true, refreshInterval =
   const memTotalGb = metrics.memory.total_mb / 1024;
   const diskUsedGb = metrics.disk.total_gb - metrics.disk.free_gb;
   const ollamaOk = metrics.ollama_status.available;
-  const chromaStatus = metrics.vector_provider === 'chromadb' ? 'connected' : 'disconnected';
+  const chromaStatus = metrics.vector_provider === 'chroma' ? 'connected' : 'disconnected';
   const pineconeStatus = metrics.vector_provider === 'pinecone' ? 'connected' : 'disconnected';
 
   return (

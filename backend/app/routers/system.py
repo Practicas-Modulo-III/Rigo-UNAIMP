@@ -62,6 +62,7 @@ async def system_metrics(session: Session = Depends(get_session)) -> dict[str, o
         },
         "disk": {
             "free_gb": round(disk.free / 1024 / 1024 / 1024, 2),
+            "total_gb": round(disk.total / 1024 / 1024 / 1024, 2),
             "percent": disk.percent,
         },
         "platform": platform.platform(),

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Upload, X, FileText, AlertCircle, CheckCircle, Circle, Loader2, Sparkles, Trash2, Eye, Download } from 'lucide-react';
-import { apiFetch } from '@/services/api';
+import { apiFetch, resolveBackendUrl } from '@/services/api';
 
 /** Fases simuladas del pipeline de ingesta (OCR + vectorización) mostradas mientras se "analiza" el archivo. */
 const ANALYSIS_PHASES = [
@@ -213,7 +213,7 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white border border-slate-200 dark:bg-slate-950 dark:border-slate-800 shadow-xl">
+      <div className="w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white border border-slate-200 dark:bg-slate-950 dark:border-slate-800 shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-6 py-4">
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <FileText className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
@@ -574,8 +574,8 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
             </button>
           </div>
 
-          <div className="rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="rounded-lg border border-slate-200 dark:border-slate-800 overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
                   <th className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-300">Archivo</th>
@@ -634,7 +634,7 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
                       <td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-xs truncate" title={log.detail}>
                         {log.detail}
                       </td>
-                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 font-mono">
+                      <td className="px-4 py-3 whitespace-nowrap text-slate-500 dark:text-slate-400 font-mono">
                         {log.created_at ? new Date(log.created_at).toLocaleString('es-PE') : '—'}
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -646,7 +646,7 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
                                 e.stopPropagation();
                                 const filePath = log.file_path!.split('/').pop();
                                 if (filePath) {
-                                  window.open(`/storage/pdf/${filePath}`, '_blank');
+                                  window.open(resolveBackendUrl(`/storage/pdf/${filePath}`), '_blank');
                                 }
                               }}
                               className="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors"
@@ -694,7 +694,7 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
                 {selectedLog.file_path && (
                   <div className="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                     <button
-                      onClick={() => window.open(`/storage/pdf/${selectedLog.file_path!.split('/').pop()}`, '_blank')}
+                      onClick={() => window.open(resolveBackendUrl(`/storage/pdf/${selectedLog.file_path!.split('/').pop()}`), '_blank')}
                       className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/10 dark:bg-emerald-400/10 px-3 py-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 dark:hover:bg-emerald-400/20"
                     >
                       <Eye className="h-4 w-4" />
@@ -703,7 +703,7 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
                     <button
                       onClick={() => {
                         const a = document.createElement('a');
-                        a.href = `/storage/pdf/${selectedLog.file_path!.split('/').pop()}`;
+                        a.href = resolveBackendUrl(`/storage/pdf/${selectedLog.file_path!.split('/').pop()}`);
                         a.download = selectedLog.filename;
                         a.click();
                       }}
