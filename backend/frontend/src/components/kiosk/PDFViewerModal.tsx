@@ -77,7 +77,7 @@ export function PDFViewerModal({ pdfUrl, isOpen, onClose, title }: PDFViewerModa
               src={viewerUrl}
               title={title ?? 'Documento PDF'}
               className="h-full w-full"
-              sandbox="allow-same-origin allow-popups allow-downloads"
+              sandbox="allow-same-origin allow-scripts allow-popups allow-downloads"
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center text-slate-400">
