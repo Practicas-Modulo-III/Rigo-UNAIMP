@@ -7,8 +7,12 @@ export interface InventoryItem {
   title: string;
   author: string;
   year: number;
-  location: string;
-  quantity: string;
+  // La ubicación se guarda en sus tres piezas, no como el texto compuesto que se muestra:
+  // ese texto no se puede volver a separar de forma fiable para guardarlo.
+  pasillo: number;
+  estante: string;
+  locationTag: string;
+  quantity: number;
   status: 'available' | 'in_use' | 'reserved';
 }
 
@@ -21,8 +25,11 @@ interface InventoryApiItem {
   estante: string;
   location_tag: string;
   status: InventoryItem['status'];
-  quantity?: string;
+  quantity?: number;
 }
+
+const locationLabel = (item: InventoryItem) =>
+  `Pasillo ${item.pasillo} · Estante ${item.estante} (${item.locationTag})`;
 
 interface InventoryTableProps {
   authToken: string | null;
@@ -50,8 +57,10 @@ export function InventoryTable({ authToken }: InventoryTableProps) {
           title: item.title,
           author: item.author,
           year: item.year,
-          location: `Pasillo ${item.pasillo} · Estante ${item.estante} (${item.location_tag})`,
-          quantity: item.quantity ?? '01',
+          pasillo: item.pasillo,
+          estante: item.estante,
+          locationTag: item.location_tag,
+          quantity: item.quantity ?? 1,
           status: item.status,
         })));
       }
@@ -77,7 +86,9 @@ export function InventoryTable({ authToken }: InventoryTableProps) {
       title: item.title,
       author: item.author,
       year: item.year,
-      location: item.location,
+      pasillo: item.pasillo,
+      estante: item.estante,
+      locationTag: item.locationTag,
       quantity: item.quantity,
       status: item.status,
     });
@@ -96,13 +107,17 @@ export function InventoryTable({ authToken }: InventoryTableProps) {
 
     setSaving({ ...saving, [code]: true });
     try {
-      const res = await apiFetch(`/api/inventory/${encodeURIComponent(code)}/status`, {
+      const res = await apiFetch(`/api/inventory/${encodeURIComponent(code)}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          title: editForm.title,
+          author: editForm.author,
+          year: editForm.year,
+          pasillo: editForm.pasillo,
+          estante: editForm.estante,
+          location_tag: editForm.locationTag,
+          quantity: editForm.quantity,
           status: editForm.status,
         }),
       });
@@ -240,19 +255,41 @@ export function InventoryTable({ authToken }: InventoryTableProps) {
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <input
-                          type="text"
-                          value={editForm.location || ''}
-                          onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
-                          className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-slate-900 dark:text-white text-sm focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400"
-                        />
+                        <div className="flex min-w-[240px] gap-1.5">
+                          <input
+                            type="number"
+                            min={0}
+                            max={3}
+                            title="Pasillo"
+                            value={editForm.pasillo ?? 0}
+                            onChange={(e) => setEditForm({ ...editForm, pasillo: parseInt(e.target.value) || 0 })}
+                            className="w-16 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-slate-900 dark:text-white text-sm focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400"
+                          />
+                          <input
+                            type="text"
+                            title="Estante"
+                            placeholder="Estante"
+                            value={editForm.estante || ''}
+                            onChange={(e) => setEditForm({ ...editForm, estante: e.target.value })}
+                            className="min-w-0 flex-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-slate-900 dark:text-white text-sm focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400"
+                          />
+                          <input
+                            type="text"
+                            title="Código de etiqueta"
+                            placeholder="P1-EA"
+                            value={editForm.locationTag || ''}
+                            onChange={(e) => setEditForm({ ...editForm, locationTag: e.target.value })}
+                            className="w-20 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 font-mono text-slate-900 dark:text-white text-sm focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400"
+                          />
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <input
-                          type="text"
-                          value={editForm.quantity || ''}
-                          onChange={(e) => setEditForm({ ...editForm, quantity: e.target.value })}
-                          className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-slate-900 dark:text-white text-sm focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400"
+                          type="number"
+                          min={1}
+                          value={editForm.quantity ?? 1}
+                          onChange={(e) => setEditForm({ ...editForm, quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                          className="w-20 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-slate-900 dark:text-white text-sm focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400"
                         />
                       </td>
                       <td className="px-4 py-3">
@@ -294,8 +331,10 @@ export function InventoryTable({ authToken }: InventoryTableProps) {
                       <td className="px-4 py-3 text-slate-900 dark:text-white max-w-xs truncate" title={item.title}>{item.title}</td>
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{item.author}</td>
                       <td className="px-4 py-3 text-slate-500 dark:text-slate-400 font-mono">{item.year}</td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{item.location}</td>
-                      <td className="px-4 py-3 font-mono text-slate-500 dark:text-slate-400">{item.quantity}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{locationLabel(item)}</td>
+                      <td className="px-4 py-3 font-mono text-slate-500 dark:text-slate-400">
+                        {String(item.quantity).padStart(2, '0')}
+                      </td>
                       <td className="px-4 py-3">{getStatusBadge(item.status)}</td>
                       <td className="px-4 py-3 text-right">
                         {confirmDelete === item.code ? (

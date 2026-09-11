@@ -28,14 +28,53 @@ class BookListItem(BaseModel):
     location_tag: str
     summary: str
     status: str
+    quantity: int
     pdf_url: Optional[str] = None
 
     class Config:
         from_attributes = True
 
 
-class StatusUpdate(BaseModel):
-    status: str = Field(pattern="^(available|in_use|reserved)$")
+class BookUpdate(BaseModel):
+    """Campos editables de la ficha. Todos opcionales: solo se aplica lo que llega."""
+
+    title: Optional[str] = Field(None, min_length=1, max_length=300)
+    author: Optional[str] = Field(None, min_length=1, max_length=200)
+    category: Optional[str] = Field(None, min_length=1, max_length=100)
+    year: Optional[int] = Field(None, ge=1000, le=2100)
+    pasillo: Optional[int] = Field(None, ge=0, le=3)
+    estante: Optional[str] = Field(None, min_length=1, max_length=100)
+    location_tag: Optional[str] = Field(None, min_length=1, max_length=40)
+    summary: Optional[str] = Field(None, max_length=2000)
+    quantity: Optional[int] = Field(None, ge=1, le=999)
+    status: Optional[str] = Field(None, pattern="^(available|in_use|reserved)$")
+
+
+# La cita que redacta RIGO ("[Fuente: Título] — Pasillo X, Estante Y") sale de la metadata del
+# fragmento, no de esta tabla: estos campos deben viajar también a Chroma al editarlos.
+VECTOR_SYNCED_FIELDS = ("title", "author", "category", "pasillo", "estante", "location_tag")
+
+
+def _open_collection():
+    return chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIRECTORY).get_or_create_collection(
+        COLLECTION_NAME, metadata={"hnsw:space": "cosine"}
+    )
+
+
+def _sync_vector_metadata(catalog_code: str, changes: dict) -> int:
+    """Propaga los campos editados a los fragmentos ya indexados del ejemplar.
+
+    Se fusiona sobre la metadata existente en vez de reemplazarla: cada fragmento guarda su
+    propia página, y sobrescribir el diccionario entero las pondría todas en la misma.
+    """
+    collection = _open_collection()
+    existing = collection.get(where={"catalog_code": catalog_code}, include=["metadatas"])
+    ids = existing.get("ids") or []
+    metadatas = existing.get("metadatas") or []
+    if not ids or len(ids) != len(metadatas):
+        return 0
+    collection.update(ids=ids, metadatas=[{**(meta or {}), **changes} for meta in metadatas])
+    return len(ids)
 
 
 @router.get("/")
@@ -67,6 +106,42 @@ def list_inventory(
     return {"total": total, "items": [BookListItem.model_validate(b) for b in books]}
 
 
+@router.patch("/{catalog_code}")
+def update_book(
+    catalog_code: str,
+    payload: BookUpdate,
+    session: Session = Depends(get_session),
+    current_admin=Depends(get_current_admin_user),
+) -> BookListItem:
+    """Actualiza la ficha de un ejemplar y mantiene los vectores en sincronía."""
+    book = session.scalar(select(Book).where(Book.catalog_code == catalog_code))
+    if book is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Book not found")
+
+    updates = payload.model_dump(exclude_unset=True, exclude_none=True)
+    if not updates:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No hay cambios que aplicar")
+
+    for field, value in updates.items():
+        setattr(book, field, value.strip() if isinstance(value, str) else value)
+
+    # Los vectores se actualizan antes de confirmar en la base: si Chroma falla, la sesión se
+    # cierra sin commit y ficha y fragmentos siguen coincidiendo, en vez de quedar divergentes.
+    synced = {field: value for field, value in updates.items() if field in VECTOR_SYNCED_FIELDS}
+    if synced:
+        try:
+            _sync_vector_metadata(catalog_code, synced)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"No se pudo actualizar la metadata indexada: {type(exc).__name__}",
+            ) from exc
+
+    session.commit()
+    session.refresh(book)
+    return BookListItem.model_validate(book)
+
+
 @router.delete("/{catalog_code}")
 def delete_book(
     catalog_code: str,
@@ -85,9 +160,7 @@ def delete_book(
 
     # Primero los vectores: si esto falla, la ficha sigue en pie y el catálogo queda coherente.
     try:
-        collection = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIRECTORY).get_or_create_collection(
-            COLLECTION_NAME, metadata={"hnsw:space": "cosine"}
-        )
+        collection = _open_collection()
         before = collection.count()
         collection.delete(where={"catalog_code": catalog_code})
         vectors_removed = before - collection.count()
@@ -116,18 +189,4 @@ def delete_book(
     }
 
 
-@router.patch("/{catalog_code}/status")
-def update_book_status(
-    catalog_code: str,
-    payload: StatusUpdate,
-    session: Session = Depends(get_session),
-    current_admin=Depends(get_current_admin_user),
-) -> BookListItem:
-    book = session.scalar(select(Book).where(Book.catalog_code == catalog_code))
-    if book is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Book not found")
-    book.status = payload.status
-    session.commit()
-    session.refresh(book)
-    return BookListItem.model_validate(book)
 
