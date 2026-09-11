@@ -1,7 +1,7 @@
 ﻿from datetime import datetime
 
 from passlib.context import CryptContext
-from sqlalchemy import Boolean, DateTime, Integer, String, Text, func, select
+from sqlalchemy import Boolean, DateTime, Integer, String, Text, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from app.config import Settings
@@ -90,13 +90,6 @@ class RAGFeedback(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
-SEED_BOOKS = (
-    {"catalog_code": "750.01", "title": "Tratado de la Pintura y del Paisaje", "author": "Leonardo Da Vinci", "category": "Talleres y Plástica", "year": 1978, "pasillo": 1, "estante": "Estante 2", "location_tag": "P1-E2", "summary": "Tratado clásico sobre composición, perspectiva y técnicas del paisaje."},
-    {"catalog_code": "750.02", "title": "Temas Varios: Técnicas Mixtas", "author": "José María Parramón", "category": "Talleres y Plástica", "year": 1985, "pasillo": 1, "estante": "Estante 2", "location_tag": "P1-E2", "summary": "Manual práctico de acuarela, óleo, collage y técnicas mixtas."},
-    {"catalog_code": "BIOG.01", "title": "Forma y Color. Giotto los Frescos de Asís", "author": "Sadea Ed.", "category": "Biografías", "year": 1975, "pasillo": 2, "estante": "Estante A", "location_tag": "P2-EA", "summary": "Análisis biográfico y visual de los frescos de Giotto en Asís."},
-)
-
-
 def seed_database(session: Session, settings: Settings) -> None:
     admin_user = session.scalar(select(User).where(User.username == settings.ADMIN_USERNAME))
     if admin_user is None:
@@ -111,6 +104,6 @@ def seed_database(session: Session, settings: Settings) -> None:
         # Environment credentials bootstrap only the first administrator. Afterwards,
         # changes made through the protected admin panel remain persistent.
         admin_user.is_admin = True
-    if session.scalar(select(func.count(Book.id))) == 0:
-        session.add_all(Book(**book) for book in SEED_BOOKS)
+    # El catálogo arranca vacío a propósito: solo debe contener ejemplares que el personal
+    # haya registrado desde el panel, con su ficha y ubicación reales.
     session.commit()

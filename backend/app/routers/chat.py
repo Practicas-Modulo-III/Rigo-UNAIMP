@@ -159,11 +159,17 @@ PREGUNTA DEL USUARIO:
 {question}'''
 
 
-def log_query(question: str, results: list[dict], elapsed_ms: int) -> None:
+def log_query(results: list[dict], elapsed_ms: int) -> None:
+    """Registra la consulta de forma anónima: categoría, latencia y hora, nunca el texto.
+
+    El kiosco es de uso público y compartido, así que guardar lo que cada estudiante escribe
+    dejaría un historial legible por el siguiente usuario del panel. La columna `question` se
+    mantiene (existe como NOT NULL en bases ya desplegadas) pero se escribe vacía.
+    """
     category = results[0]["book"].category if results else None
     session = SessionLocal()
     try:
-        session.add(QueryLog(question=question, category=category, response_ms=elapsed_ms))
+        session.add(QueryLog(question="", category=category, response_ms=elapsed_ms))
         session.commit()
     finally:
         session.close()
@@ -195,7 +201,7 @@ async def stream_chat(request: ChatRequest) -> StreamingResponse:
         if not results:
             yield sse("token", {"token": NO_CONTEXT_MESSAGE})
             yield sse("done", {"status": "finished"})
-            log_query(request.question, results, int((time.perf_counter() - started) * 1000))
+            log_query(results, int((time.perf_counter() - started) * 1000))
             return
 
         try:
@@ -206,7 +212,7 @@ async def stream_chat(request: ChatRequest) -> StreamingResponse:
             yield sse("token", {"token": NO_CONTEXT_MESSAGE})
         finally:
             yield sse("done", {"status": "finished"})
-            log_query(request.question, results, int((time.perf_counter() - started) * 1000))
+            log_query(results, int((time.perf_counter() - started) * 1000))
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
