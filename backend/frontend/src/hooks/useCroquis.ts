@@ -12,10 +12,12 @@ export function useCroquis(initialLayout: CroquisLayout) {
     setIsDirty(true);
   }, []);
 
-  const addShelf = useCallback((shelf: Omit<ShelfNode, 'id'>) => {
+  /** Devuelve el id generado para que quien la crea pueda seleccionarla de inmediato. */
+  const addShelf = useCallback((shelf: Omit<ShelfNode, 'id'>): string => {
     const id = globalThis.crypto?.randomUUID?.() ?? 'shelf-' + Date.now();
     setLayout((current) => ({ ...current, shelves: [...current.shelves, { ...shelf, id }] }));
     setIsDirty(true);
+    return id;
   }, []);
 
   const deleteShelf = useCallback((id: string) => {

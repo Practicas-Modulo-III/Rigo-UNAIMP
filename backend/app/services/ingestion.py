@@ -87,19 +87,40 @@ async def _embed_chunk(embedder, text: str) -> list[float]:
 
 
 def _metadata_placeholder(payload: dict) -> dict:
-    """Search descriptor for the D.L.822 gate (no content, only catalog metadata)."""
-    parts = [payload.get("catalog_code", ""), payload.get("title", ""), payload.get("author", "")]
+    """Descriptor de búsqueda para ejemplares sin contenido indexable (libro físico sin escanear
+    o restringido por D.L.822). El texto embebido incluye categoría y ubicación además del título:
+    con solo el título, una pregunta temática ("libros sobre pintura") no alcanzaba el umbral de
+    similitud y el ejemplar nunca se sugería."""
+    title = payload.get("title", "")
+    author = payload.get("author", "")
+    category = payload.get("category", "")
+    pasillo = payload.get("pasillo")
+    estante = payload.get("estante", "")
+    catalog_code = payload.get("catalog_code", "")
+    document = ". ".join(
+        part
+        for part in [
+            title,
+            f"Autor: {author}" if author else "",
+            f"Categoría: {category}" if category else "",
+            f"Ubicación: Pasillo {pasillo}, {estante}" if estante else "",
+            f"Código de catálogo: {catalog_code}" if catalog_code else "",
+            "Ejemplar disponible para consulta en sala",
+        ]
+        if part
+    )
     return {
-        "catalog_code": payload.get("catalog_code", ""),
-        "title": payload.get("title", ""),
-        "author": payload.get("author", ""),
-        "pasillo": payload.get("pasillo"),
-        "estante": payload.get("estante", ""),
+        "catalog_code": catalog_code,
+        "title": title,
+        "author": author,
+        "category": category,
+        "pasillo": pasillo,
+        "estante": estante,
         "location_tag": payload.get("tag_code", payload.get("location_tag", "")),
         "page": 0,
         "pdf_url": payload.get("pdf_url"),
         "rights_status": payload.get("rights_status", "free"),
-        "_document": " ".join(p for p in parts if p),
+        "_document": document,
     }
 
 
@@ -121,8 +142,9 @@ async def process_pdf_ingestion(log_id: int, path: str) -> None:
         collection = client.get_or_create_collection(COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
         embedder = get_embeddings(settings)
 
-        # D.L.822 gate: restricted work with no file -> metadata only, no OCR / content indexing.
-        if log.rights_status == "needs_authorization" and not Path(path).exists():
+        # Sin archivo (ejemplar físico sin digitalizar, o restringido por D.L.822) se indexa solo
+        # la ficha: RIGO puede sugerirlo y decir dónde está, pero nunca cita contenido que no tiene.
+        if not path or not Path(path).exists():
             holder = _metadata_placeholder(payload)
             collection.add(
                 ids=[f"{catalog_code}_metadata"],
@@ -131,7 +153,9 @@ async def process_pdf_ingestion(log_id: int, path: str) -> None:
                 metadatas=[{k: v for k, v in holder.items() if k != "_document"}],
             )
             log.status = "metadata_only"
-            log.detail = "Metadata-only indexed (D.L.822 needs_authorization, no file attached)"
+            log.detail = (
+                f"Ficha indexada sin contenido (ejemplar físico, D.L.822 rights={log.rights_status})"
+            )
             session.commit()
             return
 

@@ -70,7 +70,7 @@ export function LibraryCroquisViewer({
             'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ' +
             (activePasillo === null
               ? 'bg-emerald-400 text-slate-950'
-              : 'bg-slate-800 text-slate-300 hover:bg-slate-700')
+              : 'bg-slate-200 text-slate-600 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700')
           }
         >
           <LayoutGrid className="h-3.5 w-3.5" />
@@ -85,7 +85,7 @@ export function LibraryCroquisViewer({
               'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ' +
               (activePasillo === config.numero
                 ? 'text-slate-950'
-                : 'bg-slate-800 text-slate-300 hover:bg-slate-700')
+                : 'bg-slate-200 text-slate-600 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700')
             }
             style={activePasillo === config.numero ? { backgroundColor: config.color } : undefined}
           >
@@ -94,7 +94,7 @@ export function LibraryCroquisViewer({
           </button>
         ))}
 
-        <div className="ml-auto inline-flex rounded-full bg-slate-800 p-1">
+        <div className="ml-auto inline-flex rounded-full bg-slate-200 p-1 dark:bg-slate-800">
           {([
             { id: '2d' as const, label: 'Vista 2D', icon: Map },
             { id: '3d' as const, label: 'Vista 3D', icon: Box },
@@ -105,7 +105,9 @@ export function LibraryCroquisViewer({
               onClick={() => setMode(id)}
               className={
                 'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors ' +
-                (mode === id ? 'bg-emerald-400 text-slate-950' : 'text-slate-300 hover:text-white')
+                (mode === id
+                  ? 'bg-emerald-400 text-slate-950'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white')
               }
             >
               <Icon className="h-3.5 w-3.5" />

@@ -58,8 +58,7 @@ async def upload_document(
         file_path.write_bytes(content)
         pdf_url = f"/storage/pdf/{stored_name}"
 
-    if file_path is None and rights_status != "needs_authorization":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A PDF file is required unless rights_status is 'needs_authorization'")
+    # Sin archivo se registra el ejemplar físico: solo ficha y ubicación, sin OCR ni contenido.
 
     book = session.scalar(select(Book).where(Book.catalog_code == catalog_code))
     if book is None:
@@ -83,9 +82,9 @@ async def upload_document(
         "location_tag": tag_code.strip(), "quantity": quantity, "rights_status": rights_status, "pdf_url": pdf_url or "",
     }
     log = IngestionLog(
-        filename=file.filename if file is not None else f"{catalog_code} (no file)", rights_status=rights_status,
+        filename=file.filename if file is not None else f"{catalog_code} (ejemplar físico)", rights_status=rights_status,
         status="queued", payload=json.dumps(payload, ensure_ascii=False), file_path=str(file_path) if file_path else None,
-        detail=f"{'PDF stored and ' if file_path else ''}registered for ingest (D.L.822 rights={rights_status})",
+        detail=f"{'PDF stored and ' if file_path else 'Physical copy '}registered for ingest (D.L.822 rights={rights_status})",
     )
     session.add(log)
     session.commit()

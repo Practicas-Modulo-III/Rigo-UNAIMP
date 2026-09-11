@@ -23,7 +23,7 @@ interface CroquisEditorProps {
   onSelect?: (id: string | null) => void;
   onSelectShelf?: (pasillo: number, estante: string, category: string) => void;
   onUpdateShelf?: (id: string, updates: Partial<ShelfNode>) => void;
-  onAddShelf?: (shelf: Omit<ShelfNode, 'id'>) => void;
+  onAddShelf?: (shelf: Omit<ShelfNode, 'id'>) => string | void;
   onDeleteShelf?: (id: string) => void;
   isAdmin?: boolean;
 }
@@ -82,11 +82,19 @@ export function CroquisEditor({ shelves, selectedId, highlightPasillo = null, hi
     else setFallbackItems((previous) => previous.map((shelf) => shelf.id === id ? { ...shelf, ...updates } : shelf));
   }, [onUpdateShelf]);
 
+  // Se selecciona la sección recién creada: en 3D aparece como un mueble más en medio de la
+  // sala y, sin resaltarla y abrir su panel, no hay señal de que el botón hizo algo.
   const handleAdd = useCallback(() => {
     const shelf = blankShelf();
-    if (onAddShelf) onAddShelf(shelf);
-    else setFallbackItems((previous) => [...previous, { ...shelf, id: 'shelf-' + Date.now() }]);
-  }, [onAddShelf]);
+    if (onAddShelf) {
+      const id = onAddShelf(shelf);
+      if (typeof id === 'string') handleSelect(id);
+      return;
+    }
+    const id = 'shelf-' + Date.now();
+    setFallbackItems((previous) => [...previous, { ...shelf, id }]);
+    handleSelect(id);
+  }, [onAddShelf, handleSelect]);
 
   const handleDelete = useCallback((id: string) => {
     if (onDeleteShelf) onDeleteShelf(id);

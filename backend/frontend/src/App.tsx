@@ -36,7 +36,7 @@ function KioskPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('chat');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState<BookDoc | null>(null);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfBook, setPdfBook] = useState<BookDoc | null>(null);
   const [isPdfOpen, setIsPdfOpen] = useState(false);
   const [isQrOpen, setIsQrOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,7 +44,7 @@ function KioskPage() {
   const pasillo = selectedBook?.location.pasillo ?? highlight?.highlightedPasillo ?? null;
   const estante = selectedBook?.location.estante ?? highlight?.highlightedEstante ?? null;
   const handleViewLocation = (book: BookDoc) => { setSelectedBook(book); setIsQrOpen(true); };
-  const handleViewPdf = (book: BookDoc) => { setPdfUrl(book.pdfUrl ?? null); setIsPdfOpen(true); };
+  const handleViewPdf = (book: BookDoc) => { setPdfBook(book); setIsPdfOpen(true); };
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void sendMessage(question, filters);
@@ -198,7 +198,7 @@ function KioskPage() {
         highlightPasillo={pasillo}
         highlightEstante={estante}
       />
-      <PDFViewerModal pdfUrl={pdfUrl} isOpen={isPdfOpen} onClose={() => setIsPdfOpen(false)} title={selectedBook?.title} />
+      <PDFViewerModal book={pdfBook} isOpen={isPdfOpen} onClose={() => setIsPdfOpen(false)} />
     </div>
   );
 }

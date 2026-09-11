@@ -1,4 +1,4 @@
-import { MapPin, FileText } from 'lucide-react';
+import { MapPin, FileText, Library } from 'lucide-react';
 import type { BookDoc } from '@/types';
 import { BookStatusBadge } from '@/components/common/BookStatusBadge';
 
@@ -45,8 +45,8 @@ export function BookCard({ book, onViewLocation, onViewPdf }: BookCardProps) {
           onClick={() => onViewPdf?.(book)}
           className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
         >
-          <FileText className="h-3.5 w-3.5" />
-          PDF
+          {book.pdfUrl ? <FileText className="h-3.5 w-3.5" /> : <Library className="h-3.5 w-3.5" />}
+          {book.pdfUrl ? 'PDF' : 'Solo en sala'}
         </button>
       </div>
     </article>

@@ -1,16 +1,17 @@
 import { useEffect } from 'react';
-import { ExternalLink, FileText, X } from 'lucide-react';
+import { ExternalLink, FileText, Library, MapPin, X } from 'lucide-react';
 import { resolveBackendUrl } from '@/services/api';
+import type { BookDoc } from '@/types';
 
 interface PDFViewerModalProps {
-  pdfUrl: string | null;
+  book: BookDoc | null;
   isOpen: boolean;
   onClose: () => void;
-  title?: string;
 }
 
-export function PDFViewerModal({ pdfUrl, isOpen, onClose, title }: PDFViewerModalProps) {
-  const viewerUrl = pdfUrl ? resolveBackendUrl(pdfUrl) : null;
+export function PDFViewerModal({ book, isOpen, onClose }: PDFViewerModalProps) {
+  const title = book?.title;
+  const viewerUrl = book?.pdfUrl ? resolveBackendUrl(book.pdfUrl) : null;
   useEffect(() => {
     if (!isOpen) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -80,11 +81,44 @@ export function PDFViewerModal({ pdfUrl, isOpen, onClose, title }: PDFViewerModa
               sandbox="allow-same-origin allow-scripts allow-popups allow-downloads"
             />
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center text-slate-400">
-              <FileText className="h-10 w-10 text-slate-500" />
-              <p className="text-sm font-medium text-slate-300">Este ejemplar no cuenta con PDF digitalizado.</p>
-              <p className="max-w-sm text-xs leading-relaxed">
-                La ficha móvil con la ubicación en estante y el código QR sigue disponible para este ejemplar.
+            <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center text-slate-400">
+              <Library className="h-10 w-10 text-emerald-400" />
+              <div>
+                <p className="text-sm font-semibold text-slate-200">Ejemplar disponible solo en sala</p>
+                <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed">
+                  Este libro no está digitalizado: consúltalo físicamente en la Biblioteca Central UNA Piura.
+                </p>
+              </div>
+
+              {book ? (
+                <div className="w-full max-w-sm rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-left">
+                  <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-emerald-400">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" />
+                    Dónde encontrarlo
+                  </p>
+                  <dl className="mt-3 space-y-1.5 text-xs">
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-slate-400">Código de catálogo</dt>
+                      <dd className="font-mono font-semibold text-white">{book.id}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-slate-400">Pasillo</dt>
+                      <dd className="font-semibold text-white">{book.location.pasillo || 'Archivo'}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-slate-400">Estante</dt>
+                      <dd className="font-semibold text-white">{book.location.estante}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-slate-400">Etiqueta</dt>
+                      <dd className="font-mono font-semibold text-white">{book.location.tagCode}</dd>
+                    </div>
+                  </dl>
+                </div>
+              ) : null}
+
+              <p className="text-xs text-slate-500">
+                Usa «Ficha y ubicación» para ver el croquis 2D y llevarte el código QR al móvil.
               </p>
             </div>
           )}

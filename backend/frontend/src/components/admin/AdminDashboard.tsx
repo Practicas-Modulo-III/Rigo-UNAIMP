@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, BookOpen, CheckCircle2, Clock3, FileUp, LayoutDashboard, MapPinned, RefreshCw, ScanLine, ShieldCheck, Sparkles } from 'lucide-react';
+import { Activity, ArrowRight, BookOpen, CheckCircle2, Clock3, FileUp, LayoutDashboard, MapPinned, RefreshCw, ScanLine, ShieldCheck, Sparkles } from 'lucide-react';
 import { apiFetch } from '@/services/api';
 import { QueryStatsCard } from '@/components/admin/QueryStatsCard';
 
@@ -93,7 +93,41 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
             <button type="button" onClick={() => onNavigate('telemetry')} className="group flex items-center gap-4 rounded-xl border border-slate-200 p-4 text-left transition hover:border-amber-400 hover:bg-amber-50 dark:border-slate-700 dark:hover:bg-amber-500/10"><span className="rounded-lg bg-amber-500/10 p-2.5 text-amber-600 dark:text-amber-300"><Clock3 className="h-5 w-5" /></span><span className="min-w-0 flex-1"><span className="block font-semibold text-slate-900 dark:text-white">Ver telemetría</span><span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">Salud del servidor</span></span><ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-1 group-hover:text-amber-600" /></button>
           </div>
         </article>
-        <article className="rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"><p className="text-xs font-bold tracking-widest text-slate-500">ESTADO DEL FLUJO</p><div className="mt-5 space-y-4"><div className="flex gap-3"><span className="mt-0.5 rounded-full bg-emerald-500/15 p-1 text-emerald-600 dark:text-emerald-300"><CheckCircle2 className="h-4 w-4" /></span><div><p className="text-sm font-semibold text-slate-900 dark:text-white">Catálogo disponible</p><p className="text-xs leading-5 text-slate-500 dark:text-slate-400">{data.books} registros preparados para la consulta en kiosco.</p></div></div><div className="flex gap-3"><span className="mt-0.5 rounded-full bg-amber-500/15 p-1 text-amber-600 dark:text-amber-300"><ScanLine className="h-4 w-4" /></span><div><p className="text-sm font-semibold text-slate-900 dark:text-white">Procesamiento asíncrono</p><p className="text-xs leading-5 text-slate-500 dark:text-slate-400">Los documentos nuevos se indexan en segundo plano; el kiosco permanece disponible.</p></div></div></div><p className="mt-6 border-t border-slate-200 pt-4 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">{updatedAt ? `Última lectura: ${updatedAt.toLocaleTimeString('es-PE')}` : 'Conectando con el servidor…'}</p></article>
+        <article className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold tracking-widest text-emerald-600 dark:text-emerald-400">ESTADO DEL FLUJO</p>
+            <Activity className="h-5 w-5 text-slate-400" />
+          </div>
+
+          <div className="mt-5 flex-1 space-y-3">
+            <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
+              <span className="mt-0.5 shrink-0 rounded-full bg-emerald-500/15 p-1.5 text-emerald-600 dark:text-emerald-300"><CheckCircle2 className="h-4 w-4" /></span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">Catálogo disponible</p>
+                <p className="mt-0.5 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                  <span className="font-bold text-slate-700 dark:text-slate-200">{loading ? '…' : data.books}</span> registros listos para consulta en kiosco.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
+              <span className="mt-0.5 shrink-0 rounded-full bg-amber-500/15 p-1.5 text-amber-600 dark:text-amber-300"><ScanLine className="h-4 w-4" /></span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">Procesamiento asíncrono</p>
+                <p className="mt-0.5 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                  {data.queued + data.processing > 0
+                    ? `${data.queued + data.processing} documento(s) indexándose en segundo plano.`
+                    : 'Sin documentos en cola; el kiosco permanece disponible.'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <p className="mt-5 flex items-center gap-2 border-t border-slate-200 pt-4 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+            <span className={'h-1.5 w-1.5 shrink-0 rounded-full ' + (updatedAt ? 'bg-emerald-500' : 'animate-pulse bg-amber-500')} />
+            {updatedAt ? `Última lectura: ${updatedAt.toLocaleTimeString('es-PE')}` : 'Conectando con el servidor…'}
+          </p>
+        </article>
       </div>
     </section>
   );

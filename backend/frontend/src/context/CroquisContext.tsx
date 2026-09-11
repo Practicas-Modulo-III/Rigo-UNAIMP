@@ -12,7 +12,7 @@ interface CroquisContextValue {
   isDirty: boolean;
   setSelected: (id: string | null) => void;
   updateShelf: (id: string, updates: Partial<ShelfNode>) => void;
-  addShelf: (shelf: Omit<ShelfNode, 'id'>) => void;
+  addShelf: (shelf: Omit<ShelfNode, 'id'>) => string;
   deleteShelf: (id: string) => void;
   loadLayout: () => CroquisLayout;
   saveLayout: () => Promise<void>;

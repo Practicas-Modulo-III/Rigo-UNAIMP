@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Upload, X, FileText, AlertCircle, CheckCircle, Circle, Loader2, Sparkles, Trash2, Eye, Download } from 'lucide-react';
+import { Upload, X, FileText, AlertCircle, CheckCircle, Circle, Library, Loader2, Sparkles, Trash2, Eye, Download } from 'lucide-react';
 import { apiFetch, resolveBackendUrl } from '@/services/api';
 
 /** Fases simuladas del pipeline de ingesta (OCR + vectorización) mostradas mientras se "analiza" el archivo. */
@@ -63,6 +63,9 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
     tag_code: '',
     rights_status: 'institutional' as 'institutional' | 'public_domain' | 'needs_authorization',
   });
+  /** 'digital' exige PDF (OCR + contenido indexado); 'physical' registra solo la ficha de un
+      ejemplar que existe en la sala pero no está digitalizado. */
+  const [recordType, setRecordType] = useState<'digital' | 'physical'>('digital');
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ success: boolean; message: string; logId?: number } | null>(null);
   const [logs, setLogs] = useState<IngestionLogEntry[]>([]);
@@ -164,9 +167,8 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
       return;
     }
 
-    const requiresFile = formData.rights_status !== 'needs_authorization';
-    if (requiresFile && !file) {
-      setSubmitResult({ success: false, message: 'Se requiere un archivo PDF para este estado de derechos' });
+    if (recordType === 'digital' && !file) {
+      setSubmitResult({ success: false, message: 'Adjunta el PDF o cambia el registro a "Solo ejemplar físico"' });
       return;
     }
 
@@ -184,7 +186,7 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
     formDataToSend.append('tag_code', formData.tag_code);
     formDataToSend.append('quantity', '1');
     formDataToSend.append('rights_status', formData.rights_status);
-    if (file) {
+    if (recordType === 'digital' && file) {
       formDataToSend.append('file', file);
     }
 
@@ -195,7 +197,13 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
       });
       const data = await res.json();
       if (res.ok) {
-        setSubmitResult({ success: true, message: 'Documento encolado para procesamiento', logId: data.log_id });
+        setSubmitResult({
+          success: true,
+          message: recordType === 'physical'
+            ? 'Ejemplar físico registrado: RIGO ya puede indicar su ubicación'
+            : 'Documento encolado para procesamiento',
+          logId: data.log_id,
+        });
         setFile(null);
         if (fileInputRef.current) fileInputRef.current.value = '';
         fetchLogs();
@@ -207,7 +215,7 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
     } finally {
       setSubmitting(false);
     }
-  }, [formData, file, authToken, fetchLogs]);
+  }, [formData, file, authToken, fetchLogs, recordType]);
 
   if (!isOpen) return null;
 
@@ -230,6 +238,34 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <fieldset>
+            <legend className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">Tipo de registro *</legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {([
+                { id: 'digital' as const, title: 'Documento digitalizado', detail: 'Sube el PDF: se hace OCR y su contenido queda indexado.' },
+                { id: 'physical' as const, title: 'Solo ejemplar físico', detail: 'Sin PDF: RIGO lo sugiere e indica dónde está en la sala.' },
+              ]).map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setRecordType(option.id)}
+                  className={
+                    'rounded-xl border p-3 text-left transition-colors ' +
+                    (recordType === option.id
+                      ? 'border-emerald-500 bg-emerald-500/5'
+                      : 'border-slate-300 hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-500')
+                  }
+                >
+                  <span className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+                    {option.id === 'digital' ? <FileText className="h-4 w-4 shrink-0" /> : <Library className="h-4 w-4 shrink-0" />}
+                    {option.title}
+                  </span>
+                  <span className="mt-1 block text-xs leading-relaxed text-slate-500 dark:text-slate-400">{option.detail}</span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="book_id" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
@@ -365,12 +401,15 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
               </select>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {formData.rights_status === 'needs_authorization'
-                  ? '⚠️ Requiere autorización: sin archivo solo se registran metadatos (sin OCR ni indexación de contenido)'
+                  ? '⚠️ Requiere autorización: no se indexa el contenido, solo la ficha'
+                  : recordType === 'physical'
+                  ? 'Ejemplar físico: se indexa la ficha para poder ubicarlo, sin contenido'
                   : 'Se requiere archivo adjunto para procesamiento completo'}
               </p>
             </div>
           </div>
 
+          {recordType === 'digital' ? (
           <div className="relative">
             <div
               onDragEnter={handleDrag}
@@ -423,8 +462,19 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
               </label>
             </div>
           </div>
+          ) : (
+            <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+              <Library className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                <strong className="text-slate-900 dark:text-white">Registro sin digitalizar.</strong> Se guardará la ficha
+                (título, autor, categoría y ubicación) para que RIGO pueda sugerir este ejemplar cuando pregunten por temas
+                relacionados e indicar en qué pasillo y estante encontrarlo. No se indexa contenido, así que RIGO nunca citará
+                páginas de este libro.
+              </p>
+            </div>
+          )}
 
-          {file && (
+          {recordType === 'digital' && file && (
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/60">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <p className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -543,7 +593,11 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
               ) : (
                 <>
                   <Upload className="h-5 w-5" />
-                  {file ? 'Guardar e Indexar en ChromaDB' : 'Encolar para Ingesta'}
+                  {recordType === 'physical'
+                    ? 'Registrar ejemplar físico'
+                    : file
+                    ? 'Guardar e Indexar en ChromaDB'
+                    : 'Encolar para Ingesta'}
                 </>
               )}
             </button>
