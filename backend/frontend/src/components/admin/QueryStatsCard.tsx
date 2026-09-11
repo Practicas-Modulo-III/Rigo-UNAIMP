@@ -38,44 +38,42 @@ export function QueryStatsCard({ onViewReport }: QueryStatsCardProps) {
   useEffect(() => { void refresh(); }, [refresh]);
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl bg-[#0b1f3a] p-5">
-          <div className="flex items-center gap-3">
-            <span className="rounded-xl bg-white/10 p-2.5 text-slate-200"><MessageSquare className="h-5 w-5" /></span>
-            <span className="text-xs font-bold tracking-widest text-slate-300">CONSULTAS HOY</span>
-          </div>
-          <p className="mt-3 text-3xl font-bold italic text-white">{loading ? '…' : stats.queries_today}</p>
+    <div className="grid gap-4 xl:grid-cols-3">
+      <div className="rounded-2xl bg-white border border-slate-200 p-5 dark:border-none dark:bg-[#0b1f3a]">
+        <div className="flex items-center gap-3">
+          <span className="rounded-xl bg-slate-100 p-2.5 text-slate-600 dark:bg-white/10 dark:text-slate-200"><MessageSquare className="h-5 w-5" /></span>
+          <span className="text-xs font-bold tracking-widest text-slate-500 dark:text-slate-300">CONSULTAS HOY</span>
         </div>
-        <div className="rounded-2xl bg-[#0b1f3a] p-5">
-          <div className="flex items-center gap-3">
-            <span className="rounded-xl bg-rose-500/20 p-2.5 text-rose-400"><Zap className="h-5 w-5" /></span>
-            <span className="text-xs font-bold tracking-widest text-slate-300">RESPUESTA PROMEDIO</span>
-          </div>
-          <p className="mt-3 text-3xl font-bold italic text-white">{loading ? '…' : `${stats.avg_response_seconds}s`}</p>
+        <p className="mt-3 text-3xl font-bold italic text-slate-900 dark:text-white">{loading ? '…' : stats.queries_today}</p>
+      </div>
+      <div className="rounded-2xl bg-white border border-slate-200 p-5 dark:border-none dark:bg-[#0b1f3a]">
+        <div className="flex items-center gap-3">
+          <span className="rounded-xl bg-rose-500/10 p-2.5 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400"><Zap className="h-5 w-5" /></span>
+          <span className="text-xs font-bold tracking-widest text-slate-500 dark:text-slate-300">RESPUESTA PROMEDIO</span>
         </div>
+        <p className="mt-3 text-3xl font-bold italic text-slate-900 dark:text-white">{loading ? '…' : `${stats.avg_response_seconds}s`}</p>
       </div>
 
-      <div className="rounded-2xl bg-[#0b1f3a] p-6">
+      <div className="rounded-2xl bg-white border border-slate-200 p-6 dark:border-none dark:bg-[#0b1f3a] xl:row-span-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-white">Temas de Arte más Consultados</h3>
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Temas de Arte más Consultados</h3>
           {onViewReport && (
-            <button type="button" onClick={onViewReport} className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 hover:text-emerald-300">
+            <button type="button" onClick={onViewReport} className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300">
               VER REPORTE DETALLADO <ChevronRight className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
         <div className="mt-6 space-y-5">
           {stats.top_topics.length === 0 && !loading && (
-            <p className="text-sm text-slate-400">Aún no hay consultas registradas.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Aún no hay consultas registradas.</p>
           )}
           {stats.top_topics.map((topic, index) => (
             <div key={topic.category}>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-200">{topic.category}</span>
-                <span className={'font-bold ' + (VALUE_COLORS[index] ?? 'text-slate-300')}>{topic.percent}%</span>
+                <span className="text-slate-700 dark:text-slate-200">{topic.category}</span>
+                <span className={'font-bold ' + (VALUE_COLORS[index] ?? 'text-slate-500 dark:text-slate-300')}>{topic.percent}%</span>
               </div>
-              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-700/50">
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700/50">
                 <div className={'h-full rounded-full ' + (BAR_COLORS[index] ?? 'bg-slate-400')} style={{ width: `${topic.percent}%` }} />
               </div>
             </div>

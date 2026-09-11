@@ -29,7 +29,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     setLoading(true);
     try {
       const [inventoryResponse, logsResponse, metricsResponse] = await Promise.all([
-        apiFetch('/api/inventory'),
+        apiFetch('/api/inventory/'),
         apiFetch('/api/documents/logs'),
         apiFetch('/api/system/metrics'),
       ]);

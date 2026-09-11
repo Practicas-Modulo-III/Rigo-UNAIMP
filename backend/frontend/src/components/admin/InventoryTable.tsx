@@ -40,7 +40,7 @@ export function InventoryTable({ authToken }: InventoryTableProps) {
     if (!authToken) return;
     setLoading(true);
     try {
-      const res = await apiFetch('/api/inventory');
+      const res = await apiFetch('/api/inventory/');
       if (res.ok) {
         const data = await res.json() as { items?: InventoryApiItem[] };
         setItems((data.items ?? []).map((item) => ({

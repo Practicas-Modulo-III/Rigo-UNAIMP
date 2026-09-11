@@ -117,7 +117,7 @@ export function LibraryCroquisViewer({
 
       {/* El lienzo mide 960x804 (relación 1.194), así que limitar el ANCHO a 70vh deja el
           croquis en ~59vh de alto: entra completo en la pantalla del kiosco sin recortes. */}
-      <div className="mx-auto w-full max-w-[70vh]">
+      <div className="mx-auto w-full max-w-[52vh]">
         {mode === '3d' ? (
           <Suspense
             fallback={
