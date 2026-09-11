@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Edit2, Save, X, Loader2, AlertCircle, CheckCircle, Package } from 'lucide-react';
+import { Edit2, Save, X, Loader2, AlertCircle, CheckCircle, Package, Trash2 } from 'lucide-react';
 import { apiFetch } from '@/services/api';
 
 export interface InventoryItem {
@@ -34,6 +34,8 @@ export function InventoryTable({ authToken }: InventoryTableProps) {
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<InventoryItem>>({});
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const fetchInventory = useCallback(async () => {
@@ -116,6 +118,27 @@ export function InventoryTable({ authToken }: InventoryTableProps) {
       showToast('Error de conexión con el servidor', 'error');
     } finally {
       setSaving({ ...saving, [code]: false });
+    }
+  };
+
+  const handleDelete = async (code: string) => {
+    setDeleting((current) => ({ ...current, [code]: true }));
+    try {
+      const res = await apiFetch(`/api/inventory/${encodeURIComponent(code)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok) {
+        const pieces = [`${data.vectors_removed} fragmento(s) indexados`];
+        if (data.pdf_removed) pieces.push('su PDF');
+        showToast(`Ejemplar ${code} eliminado junto con ${pieces.join(' y ')}`, 'success');
+        setConfirmDelete(null);
+        fetchInventory();
+      } else {
+        showToast(data.detail || 'Error al eliminar el ejemplar', 'error');
+      }
+    } catch {
+      showToast('Error de conexión con el servidor', 'error');
+    } finally {
+      setDeleting((current) => ({ ...current, [code]: false }));
     }
   };
 
@@ -275,14 +298,46 @@ export function InventoryTable({ authToken }: InventoryTableProps) {
                       <td className="px-4 py-3 font-mono text-slate-500 dark:text-slate-400">{item.quantity}</td>
                       <td className="px-4 py-3">{getStatusBadge(item.status)}</td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleEdit(item)}
-                          className="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors"
-                          aria-label="Editar ejemplar"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
+                        {confirmDelete === item.code ? (
+                          <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+                            <span className="text-xs text-red-600 dark:text-red-400">¿Eliminar ficha, PDF e índice?</span>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDelete(null)}
+                              className="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(item.code)}
+                              disabled={deleting[item.code]}
+                              className="inline-flex items-center gap-1 rounded bg-red-500 px-2 py-1 text-xs font-semibold text-white hover:bg-red-400 disabled:opacity-50"
+                            >
+                              {deleting[item.code] ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                              Confirmar
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleEdit(item)}
+                              className="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors"
+                              aria-label="Editar ejemplar"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDelete(item.code)}
+                              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-red-500/10 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400"
+                              aria-label="Eliminar ejemplar"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </>
                   )}
