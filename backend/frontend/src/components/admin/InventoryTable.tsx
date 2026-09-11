@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { Edit2, Save, X, Loader2, AlertCircle, CheckCircle, Package, Trash2 } from 'lucide-react';
 import { apiFetch } from '@/services/api';
+import { BOOK_CATEGORIES } from '@/types';
 
 export interface InventoryItem {
   code: string;
   title: string;
   author: string;
+  category: string;
+  summary: string;
   year: number;
   // La ubicación se guarda en sus tres piezas, no como el texto compuesto que se muestra:
   // ese texto no se puede volver a separar de forma fiable para guardarlo.
@@ -20,6 +23,8 @@ interface InventoryApiItem {
   catalog_code: string;
   title: string;
   author: string;
+  category: string;
+  summary: string;
   year: number;
   pasillo: number;
   estante: string;
@@ -56,6 +61,8 @@ export function InventoryTable({ authToken }: InventoryTableProps) {
           code: item.catalog_code,
           title: item.title,
           author: item.author,
+          category: item.category,
+          summary: item.summary,
           year: item.year,
           pasillo: item.pasillo,
           estante: item.estante,
@@ -85,6 +92,8 @@ export function InventoryTable({ authToken }: InventoryTableProps) {
     setEditForm({
       title: item.title,
       author: item.author,
+      category: item.category,
+      summary: item.summary,
       year: item.year,
       pasillo: item.pasillo,
       estante: item.estante,
@@ -113,6 +122,8 @@ export function InventoryTable({ authToken }: InventoryTableProps) {
         body: JSON.stringify({
           title: editForm.title,
           author: editForm.author,
+          category: editForm.category,
+          summary: editForm.summary,
           year: editForm.year,
           pasillo: editForm.pasillo,
           estante: editForm.estante,
@@ -204,6 +215,7 @@ export function InventoryTable({ authToken }: InventoryTableProps) {
               <th className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-300">Código</th>
               <th className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-300">Título</th>
               <th className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-300">Autor</th>
+              <th className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-300">Categoría</th>
               <th className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-300">Año</th>
               <th className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-300">Ubicación</th>
               <th className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-300">Cant.</th>
@@ -214,19 +226,20 @@ export function InventoryTable({ authToken }: InventoryTableProps) {
           <tbody>
             {loading ? (
               <tr>
-                <td className="px-4 py-8 text-center text-slate-400 dark:text-slate-500" colSpan={8}>
+                <td className="px-4 py-8 text-center text-slate-400 dark:text-slate-500" colSpan={9}>
                   <Loader2 className="mx-auto h-6 w-6 animate-spin text-emerald-600 dark:text-emerald-400" />
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-center text-slate-400 dark:text-slate-500" colSpan={8}>
+                <td className="px-4 py-8 text-center text-slate-400 dark:text-slate-500" colSpan={9}>
                   No hay ejemplares registrados
                 </td>
               </tr>
             ) : (
               items.map((item) => (
-                <tr key={item.code} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-900/50">
+                <Fragment key={item.code}>
+                <tr className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-900/50">
                   {editingId === item.code ? (
                     <>
                       <td className="px-4 py-3 font-mono text-emerald-600 dark:text-emerald-400">{item.code}</td>
@@ -247,11 +260,22 @@ export function InventoryTable({ authToken }: InventoryTableProps) {
                         />
                       </td>
                       <td className="px-4 py-3">
+                        <select
+                          value={editForm.category || ''}
+                          onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                          className="w-full min-w-[150px] rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-slate-900 dark:text-white text-sm focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400"
+                        >
+                          {BOOK_CATEGORIES.map((cat) => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-4 py-3">
                         <input
                           type="number"
                           value={editForm.year || ''}
                           onChange={(e) => setEditForm({ ...editForm, year: parseInt(e.target.value) || 0 })}
-                          className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-slate-900 dark:text-white text-sm focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400"
+                          className="w-full min-w-[80px] rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-slate-900 dark:text-white text-sm focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400"
                         />
                       </td>
                       <td className="px-4 py-3">
@@ -330,6 +354,11 @@ export function InventoryTable({ authToken }: InventoryTableProps) {
                       <td className="px-4 py-3 font-mono text-emerald-600 dark:text-emerald-400">{item.code}</td>
                       <td className="px-4 py-3 text-slate-900 dark:text-white max-w-xs truncate" title={item.title}>{item.title}</td>
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{item.author}</td>
+                      <td className="px-4 py-3">
+                        <span className="whitespace-nowrap rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                          {item.category}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-slate-500 dark:text-slate-400 font-mono">{item.year}</td>
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{locationLabel(item)}</td>
                       <td className="px-4 py-3 font-mono text-slate-500 dark:text-slate-400">
@@ -381,6 +410,26 @@ export function InventoryTable({ authToken }: InventoryTableProps) {
                     </>
                   )}
                 </tr>
+
+                {/* La síntesis es el texto que el kiosco muestra en la tarjeta del libro: no cabe
+                    en una celda, así que al editar se despliega a lo ancho debajo de la fila. */}
+                {editingId === item.code ? (
+                  <tr className="border-b border-slate-100 bg-slate-50 dark:border-slate-800/50 dark:bg-slate-900/40">
+                    <td colSpan={9} className="px-4 pb-4">
+                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400">
+                        Síntesis mostrada en la ficha del kiosco
+                        <textarea
+                          rows={3}
+                          value={editForm.summary || ''}
+                          onChange={(e) => setEditForm({ ...editForm, summary: e.target.value })}
+                          placeholder="Resumen breve del contenido del ejemplar."
+                          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400"
+                        />
+                      </label>
+                    </td>
+                  </tr>
+                ) : null}
+                </Fragment>
               ))
             )}
           </tbody>

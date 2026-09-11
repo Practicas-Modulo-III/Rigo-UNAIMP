@@ -14,6 +14,18 @@ export type BookCategory =
   | 'Historia Regional'
   | 'Cerámica';
 
+/** Categorías asignables a un ejemplar. Excluye 'Todas', que solo existe como filtro. */
+export const BOOK_CATEGORIES: readonly Exclude<BookCategory, 'Todas'>[] = [
+  'Talleres y Plástica',
+  'Biografías',
+  'Tesis',
+  'Pintura Piurana',
+  'Artesanías y Folclore',
+  'Escultura',
+  'Historia Regional',
+  'Cerámica',
+];
+
 export interface LocationInfo {
   pasillo: number; // 1, 2, or 3 (0 = Archivo / fuera de pasillos)
   estante: string; // e.g. "Estante A", "Estante B", "Archivo de Tesis"

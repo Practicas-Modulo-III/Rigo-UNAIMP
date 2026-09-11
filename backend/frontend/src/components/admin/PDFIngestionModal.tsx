@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Upload, X, FileText, AlertCircle, CheckCircle, Circle, Library, Loader2, Sparkles, Trash2, Eye, Download } from 'lucide-react';
 import { apiFetch, resolveBackendUrl } from '@/services/api';
+import { BOOK_CATEGORIES } from '@/types';
 
 /** Fases simuladas del pipeline de ingesta (OCR + vectorización) mostradas mientras se "analiza" el archivo. */
 const ANALYSIS_PHASES = [
@@ -38,16 +39,6 @@ const RIGHTS_STATUS_OPTIONS = [
   { value: 'needs_authorization', label: 'Requiere Autorización (D.L. 822)' },
 ] as const;
 
-const CATEGORIES = [
-  'Talleres y Plástica',
-  'Biografías',
-  'Tesis',
-  'Pintura Piurana',
-  'Artesanías y Folclore',
-  'Escultura',
-  'Historia Regional',
-  'Cerámica',
-] as const;
 
 export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionModalProps) {
   const [file, setFile] = useState<File | null>(null);
@@ -339,7 +330,7 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-900 dark:text-white focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400"
               >
-                {CATEGORIES.map((cat) => (
+                {BOOK_CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
                     {cat}
                   </option>
