@@ -101,7 +101,9 @@ def list_ingestion_logs(
     current_admin=Depends(get_current_admin_user),
 ) -> dict[str, int | list[dict[str, object]]]:
     logs = session.scalars(select(IngestionLog).order_by(IngestionLog.created_at.desc()).limit(limit)).all()
-    return {"count": len(logs), "logs": [{
+    # El límite viaja con los logs (que el panel ya pide al abrirse) para que el validador del
+    # navegador use el mismo número que el servidor, sin una constante duplicada que se desfase.
+    return {"count": len(logs), "max_upload_mb": settings.MAX_UPLOAD_MB, "logs": [{
         "id": log.id, "filename": log.filename, "rights_status": log.rights_status,
         "status": log.status, "detail": log.detail,
         "created_at": f"{log.created_at.isoformat()}Z" if log.created_at else None,

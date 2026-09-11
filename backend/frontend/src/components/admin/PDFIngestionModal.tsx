@@ -70,6 +70,10 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
   const [submitResult, setSubmitResult] = useState<{ success: boolean; message: string; logId?: number } | null>(null);
   const [logs, setLogs] = useState<IngestionLogEntry[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  // El servidor manda su propio MAX_UPLOAD_MB junto con los logs; 50 es solo el valor de arranque
+  // hasta que responde, para no duplicar el límite en dos lugares que se desincronicen.
+  const [maxUploadMb, setMaxUploadMb] = useState(50);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [selectedLog, setSelectedLog] = useState<IngestionLogEntry | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -114,6 +118,7 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
       if (res.ok) {
         const data = await res.json();
         setLogs(data.logs || []);
+        if (typeof data.max_upload_mb === 'number') setMaxUploadMb(data.max_upload_mb);
       }
     } catch {
       // ignore
@@ -132,29 +137,46 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
     }
   }, []);
 
+  /** Valida extensión y peso antes de subir nada.
+   *
+   * Antes un archivo inválido se descartaba en silencio (no pasaba nada al soltarlo, sin
+   * explicación) y uno demasiado grande viajaba entero por la red solo para que el servidor
+   * lo rechazara al final. El servidor sigue validando: esto es solo la primera barrera. */
+  const acceptFile = useCallback((candidate: File): void => {
+    if (!candidate.name.toLowerCase().endsWith('.pdf')) {
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setFileError(`Solo se aceptan archivos PDF. «${candidate.name}» no lo es.`);
+      return;
+    }
+    const sizeMb = candidate.size / 1024 / 1024;
+    if (sizeMb > maxUploadMb) {
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setFileError(
+        `El archivo pesa ${sizeMb.toFixed(1)} MB y el límite es ${maxUploadMb} MB. ` +
+          'Usa una versión comprimida o pide al administrador que amplíe el límite.',
+      );
+      return;
+    }
+    setFileError(null);
+    setFile(candidate);
+  }, [maxUploadMb]);
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (e.dataTransfer.files.length > 0) {
-      const droppedFile = e.dataTransfer.files[0];
-      if (droppedFile.type === 'application/pdf' || droppedFile.name.toLowerCase().endsWith('.pdf')) {
-        setFile(droppedFile);
-      }
-    }
-  }, []);
+    if (e.dataTransfer.files.length > 0) acceptFile(e.dataTransfer.files[0]);
+  }, [acceptFile]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const selectedFile = e.target.files[0];
-      if (selectedFile.type === 'application/pdf' || selectedFile.name.toLowerCase().endsWith('.pdf')) {
-        setFile(selectedFile);
-      }
-    }
-  }, []);
+    if (e.target.files && e.target.files.length > 0) acceptFile(e.target.files[0]);
+  }, [acceptFile]);
 
   const removeFile = useCallback(() => {
     setFile(null);
+    setFileError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -456,11 +478,18 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
                     <p className="mt-3 text-slate-600 dark:text-slate-300">
                       Arrastra y suelta un archivo PDF aquí, o haz clic para seleccionar
                     </p>
-                    <p className="mt-1 text-sm text-slate-400 dark:text-slate-500">Máx. 50 MB</p>
+                    <p className="mt-1 text-sm text-slate-400 dark:text-slate-500">Solo PDF · Máx. {maxUploadMb} MB</p>
                   </>
                 )}
               </label>
             </div>
+
+            {fileError ? (
+              <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/5 p-3">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+                <p className="text-sm text-red-600 dark:text-red-300">{fileError}</p>
+              </div>
+            ) : null}
           </div>
           ) : (
             <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
@@ -677,12 +706,14 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
                               ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
                               : log.status === 'metadata_only'
                               ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                              : log.status === 'flagged_review'
+                              ? 'bg-orange-500/15 font-bold text-orange-600 ring-1 ring-inset ring-orange-500/40 dark:text-orange-400'
                               : log.status === 'failed'
                               ? 'bg-red-500/10 text-red-600 dark:text-red-400'
                               : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
                           }`}
                         >
-                          {log.status}
+                          {log.status === 'flagged_review' ? '⚠ revisar' : log.status}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-xs truncate" title={log.detail}>

@@ -1,4 +1,6 @@
-﻿import json
+﻿import asyncio
+import json
+import re
 import traceback
 from pathlib import Path
 
@@ -22,6 +24,38 @@ SPLITTER = RecursiveCharacterTextSplitter(
 
 settings = get_settings()
 
+# Frases con las que un PDF intenta dar órdenes al modelo que luego lo cite como contexto.
+# Deliberadamente específicas: "actúa como" o "sistema" sueltos aparecen en libros legítimos y
+# marcarían media biblioteca. Los tokens de control de LLM no aparecen en un libro real jamás.
+INJECTION_PATTERNS: tuple[tuple[str, str], ...] = (
+    ("ignorar instrucciones previas", r"(ignor[ae]|olvid[ae])\s+(todas\s+)?(las\s+|tus\s+)?instrucciones\s+(anteriores|previas)"),
+    ("ignore previous instructions", r"(ignore|disregard|forget)\s+(all\s+)?(the\s+)?(previous|prior|above)\s+instructions"),
+    ("redefinición de rol", r"(a\s+partir\s+de\s+ahora\s+)?(eres|ser[áa]s)\s+ahora\s+un[ao]?\s"),
+    ("role override", r"you\s+are\s+now\s+an?\s+\w+"),
+    ("referencia al system prompt", r"(system\s+prompt|prompt\s+del\s+sistema|tus\s+instrucciones\s+de\s+sistema)"),
+    ("pedido de revelar instrucciones", r"(revela|muestra|imprime|reveal|print|show)\s+(tus|las|your|the)\s+(instrucciones|instructions)"),
+    ("token de control de LLM", r"(<\|im_start\|>|<\|im_end\|>|\[/?INST\]|<\s*/?\s*system\s*>)"),
+)
+
+
+class ExtractionError(Exception):
+    """El PDF no se pudo leer ni por texto ni por OCR."""
+
+
+def _scan_for_injection(pages: list[tuple[int, str]]) -> list[str]:
+    """Busca intentos de prompt injection en el texto extraído.
+
+    No bloquea la ingesta: un libro sobre seguridad en IA puede citar estas frases de forma
+    legítima. Marca el documento para que el personal lo revise y lo borre si no corresponde.
+    """
+    found: list[str] = []
+    for label, pattern in INJECTION_PATTERNS:
+        for page_number, text in pages:
+            if re.search(pattern, text, re.IGNORECASE):
+                found.append(f"{label} (pág. {page_number})")
+                break
+    return found
+
 
 def sanitize_utf8(text: str) -> str:
     """Strip invalid UTF-8 byte sequences so embeddings and Chroma never receive broken text."""
@@ -34,7 +68,10 @@ def sanitize_utf8(text: str) -> str:
 
 
 def extract_text_by_page(path: str) -> list[tuple[int, str]]:
-    """Extract per-page text with pdfplumber; fall back to OCR (pytesseract, lang=spa) when too sparse."""
+    """Extract per-page text with pdfplumber; fall back to OCR (pytesseract, lang=spa) when too sparse.
+
+    CPU-bound y bloqueante: invocar siempre con `asyncio.to_thread` desde código async.
+    """
     pages: list[tuple[int, str]] = []
     try:
         with pdfplumber.open(path) as pdf:
@@ -50,13 +87,18 @@ def extract_text_by_page(path: str) -> list[tuple[int, str]]:
 
 
 def _ocr_pages(path: str) -> list[tuple[int, str]]:
-    """Render each page to an image (pdf2image) and run tesseract with Spanish language model."""
+    """Render each page to an image (pdf2image) and run tesseract with Spanish language model.
+
+    Ante un fallo lanza ExtractionError en vez de devolver el mensaje de error como si fuera
+    texto del libro: ese texto sintético terminaba embebido en Chroma y RIGO podía llegar a
+    citarlo como si fuera un párrafo del ejemplar.
+    """
     try:
         from pdf2image import convert_from_path
 
         import pytesseract
     except Exception as exc:
-        return [(1, f"OCR unavailable for {Path(path).name}: {type(exc).__name__}")]
+        raise ExtractionError(f"OCR no disponible en el contenedor: {type(exc).__name__}") from exc
 
     pages: list[tuple[int, str]] = []
     try:
@@ -65,7 +107,10 @@ def _ocr_pages(path: str) -> list[tuple[int, str]]:
             text = sanitize_utf8(pytesseract.image_to_string(image, lang="spa"))
             pages.append((index, text))
     except Exception as exc:
-        pages = [(1, f"OCR failed for {Path(path).name}: {type(exc).__name__}")]
+        raise ExtractionError(
+            f"No se pudo leer el PDF ni por texto ni por OCR ({type(exc).__name__}): "
+            "puede estar dañado o protegido."
+        ) from exc
     return pages
 
 
@@ -146,7 +191,8 @@ async def process_pdf_ingestion(log_id: int, path: str) -> None:
         # la ficha: RIGO puede sugerirlo y decir dónde está, pero nunca cita contenido que no tiene.
         if not path or not Path(path).exists():
             holder = _metadata_placeholder(payload)
-            collection.add(
+            await asyncio.to_thread(
+                collection.add,
                 ids=[f"{catalog_code}_metadata"],
                 embeddings=[await embedder.embed(holder["_document"])],
                 documents=[holder["_document"]],
@@ -159,29 +205,76 @@ async def process_pdf_ingestion(log_id: int, path: str) -> None:
             session.commit()
             return
 
-        pages = extract_text_by_page(path)
+        # PDFPlumber y Tesseract son CPU puro y el servidor corre en un solo proceso: sin sacarlos
+        # del hilo del event loop, digitalizar un libro de cientos de páginas congelaba el chat
+        # de todos los usuarios conectados (regla 2.4 de AGENTS.md).
+        pages = await asyncio.to_thread(extract_text_by_page, path)
+
+        total_chars = sum(len(text) for _, text in pages)
+        if total_chars < MIN_CHARS:
+            log.status = "failed"
+            log.detail = (
+                f"El PDF no contiene texto legible ({len(pages)} páginas, {total_chars} caracteres "
+                "tras OCR). Puede estar en blanco, ser solo imágenes ilegibles o estar dañado. "
+                "No se indexó nada."
+            )
+            session.commit()
+            return
+
+        suspicious = _scan_for_injection(pages)
+
+        base_metadata = {
+            "catalog_code": catalog_code,
+            "title": payload.get("title", ""),
+            "author": payload.get("author", ""),
+            "pasillo": payload.get("pasillo"),
+            "estante": payload.get("estante", ""),
+            "location_tag": payload.get("tag_code", payload.get("location_tag", "")),
+            "pdf_url": payload.get("pdf_url"),
+            "rights_status": log.rights_status,
+        }
+
         indexed = 0
         for page_number, page_text in pages:
-            for seq, chunk in _split_chunks(page_text):
-                vector = await _embed_chunk(embedder, chunk)
-                vector_id = f"{catalog_code}_p{page_number}_s{seq}"
-                metadata = {
-                    "catalog_code": catalog_code,
-                    "title": payload.get("title", ""),
-                    "author": payload.get("author", ""),
-                    "pasillo": payload.get("pasillo"),
-                    "estante": payload.get("estante", ""),
-                    "location_tag": payload.get("tag_code", payload.get("location_tag", "")),
-                    "page": page_number,
-                    "pdf_url": payload.get("pdf_url"),
-                    "rights_status": log.rights_status,
-                }
-                collection.add(ids=[vector_id], embeddings=[vector], documents=[chunk], metadatas=[metadata])
-                indexed += 1
+            chunks = _split_chunks(page_text)
+            if not chunks:
+                continue
+            ids: list[str] = []
+            documents: list[str] = []
+            embeddings: list[list[float]] = []
+            metadatas: list[dict] = []
+            for seq, chunk in chunks:
+                embeddings.append(await _embed_chunk(embedder, chunk))
+                ids.append(f"{catalog_code}_p{page_number}_s{seq}")
+                documents.append(chunk)
+                metadatas.append({**base_metadata, "page": page_number})
+            # Una escritura por página en vez de una por fragmento: cada `add` toca disco y
+            # reconstruye el índice HNSW, así que en lote es mucho más barato y no bloquea el loop.
+            await asyncio.to_thread(
+                collection.add, ids=ids, embeddings=embeddings, documents=documents, metadatas=metadatas
+            )
+            indexed += len(ids)
 
-        log.status = "completed"
-        log.detail = f"Extracted {len(pages)} pages, {indexed} chunks indexed ({settings.vector_provider})"
+        summary = f"{len(pages)} páginas extraídas, {indexed} fragmentos indexados ({settings.vector_provider})"
+        if suspicious:
+            log.status = "flagged_review"
+            log.detail = (
+                f"{summary}. ⚠️ REVISAR: el documento contiene frases que parecen intentar dar "
+                f"instrucciones al asistente ({'; '.join(suspicious)}). Está indexado y consultable: "
+                "revisa el PDF y elimínalo del catálogo si no es material legítimo."
+            )
+        else:
+            log.status = "completed"
+            log.detail = summary
         session.commit()
+    except ExtractionError as exc:
+        # Fallo esperable de un archivo dañado: el admin necesita saber qué pasó, no un traceback.
+        session.rollback()
+        log = session.get(IngestionLog, log_id)
+        if log is not None:
+            log.status = "failed"
+            log.detail = str(exc)
+            session.commit()
     except Exception as exc:
         session.rollback()
         log = session.get(IngestionLog, log_id)
