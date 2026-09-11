@@ -97,7 +97,9 @@ export function CroquisEditor({ shelves, selectedId, highlightPasillo = null, hi
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-      <div className="flex w-full flex-col gap-3">
+      {/* El lienzo mide 960x804 (relación 1.194): limitando el ANCHO a 58vh el croquis ocupa
+          ~49vh de alto, así que cabecera + barra + croquis entran en una pantalla sin scroll. */}
+      <div className="flex w-full max-w-[58vh] flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <button
             type="button"
