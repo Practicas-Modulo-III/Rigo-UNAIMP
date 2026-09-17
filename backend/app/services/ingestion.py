@@ -108,14 +108,22 @@ def _ocr_pages(path: str) -> list[tuple[int, str]]:
     pages: list[tuple[int, str]] = []
     try:
         images = convert_from_path(path, dpi=200)
-        for index, image in enumerate(images, start=1):
-            text = sanitize_utf8(pytesseract.image_to_string(image, lang="spa"))
-            pages.append((index, text))
     except Exception as exc:
         raise ExtractionError(
             f"No se pudo leer el PDF ni por texto ni por OCR ({type(exc).__name__}): "
             "puede estar dañado o protegido."
         ) from exc
+
+    for index, image in enumerate(images, start=1):
+        try:
+            # Tesseract has no internal deadline and can hang indefinitely on a pathological
+            # page (dense noise, huge scan artifacts): a real ingestion once sat "processing"
+            # for 2+ hours with 0% CPU on exactly this. A per-page timeout turns that into a
+            # skipped page instead of a permanently stuck background task.
+            text = sanitize_utf8(pytesseract.image_to_string(image, lang="spa", timeout=60))
+        except RuntimeError:
+            text = ""
+        pages.append((index, text))
     return pages
 
 
