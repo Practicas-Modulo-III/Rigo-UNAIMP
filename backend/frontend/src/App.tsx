@@ -1,5 +1,6 @@
-﻿import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import type { LucideIcon } from 'lucide-react';
 import { Activity, ArrowLeft, BookOpen, Columns2, FileUp, KeyRound, LayoutDashboard, LogOut, Map, MapPinned, Menu, MessageSquare, Search, Send, SlidersHorizontal, X } from 'lucide-react';
 import { AdminDashboard } from '@/components/admin/AdminDashboard';
@@ -433,5 +434,12 @@ function AppRoutes() {
 }
 
 export default function App() {
-  return <BrowserRouter><CroquisProvider><AppRoutes /></CroquisProvider></BrowserRouter>;
+  return (
+    <BrowserRouter>
+      <CroquisProvider>
+        <AppRoutes />
+        <SpeedInsights />
+      </CroquisProvider>
+    </BrowserRouter>
+  );
 }
