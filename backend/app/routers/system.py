@@ -13,7 +13,7 @@ from app.config import get_settings
 from app.database import get_session
 from app.models import Book, QueryLog
 from app.routers.auth import get_current_admin_user
-from app.routers.chat import retrieve_context
+from app.routers.chat import retrieve_raw
 from app.services.embeddings_factory import EMBEDDING_DIMENSIONS
 from app.services.ingestion import CHUNK_SIZE
 
@@ -152,7 +152,7 @@ async def vector_inspect(
 ) -> VectorInspectResponse:
     """Admin diagnostic: run the same embed + Chroma/Pinecone retrieval used by /api/chat/stream
     without invoking the LLM, so staff can audit which chunks would ground a given answer."""
-    raw_results = await retrieve_context(payload.question, None)
+    raw_results = await retrieve_raw(payload.question, None)
     items: list[VectorInspectResult] = []
     for item in raw_results[:3]:
         metadata = item["metadata"]

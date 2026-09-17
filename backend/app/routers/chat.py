@@ -85,11 +85,13 @@ def matches_filters(book: Book, filters: ChatFilters | None) -> bool:
     return True
 
 
-async def retrieve_context(question: str, filters: ChatFilters | None) -> list[dict]:
+async def retrieve_raw(question: str, filters: ChatFilters | None) -> list[dict]:
     """Embed with Ollama (768 dimensions), query persistent Chroma top 5, and join each
     hit against its catalog Book row — the source of truth for category/year/status,
-    since the vector store only carries location/page metadata."""
-    vector = await get_embeddings(settings).embed(question)
+    since the vector store only carries location/page metadata. Returns every catalog-linked
+    hit regardless of similarity, so callers that need to see low-relevance matches (the admin
+    vector-inspect diagnostic) aren't blind to them."""
+    vector = await get_embeddings(settings).embed(question, prefix="search_query: ")
     client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIRECTORY)
     collection = client.get_or_create_collection(COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
     response = collection.query(
@@ -110,13 +112,16 @@ async def retrieve_context(question: str, filters: ChatFilters | None) -> list[d
             book = session.scalar(select(Book).where(Book.catalog_code == catalog_code)) if catalog_code else None
             if book is None or not matches_filters(book, filters):
                 continue
-            similarity = 1 - distance
-            if similarity < MIN_SIMILARITY:
-                continue
             results.append({"metadata": metadata, "document": document or "", "distance": distance, "book": book})
         return results
     finally:
         session.close()
+
+
+async def retrieve_context(question: str, filters: ChatFilters | None) -> list[dict]:
+    """Same as retrieve_raw, gated to the chunks confident enough to ground an answer."""
+    raw = await retrieve_raw(question, filters)
+    return [item for item in raw if (1 - item["distance"]) >= MIN_SIMILARITY]
 
 
 def build_prompt(question: str, results: list[dict]) -> str:

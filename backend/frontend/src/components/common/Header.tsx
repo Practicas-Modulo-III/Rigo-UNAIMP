@@ -28,7 +28,14 @@ export function Header({ title = 'RIGO — Asistente de Consulta Bibliográfica'
             suelta como pasaba antes con el botón de tema. */}
         <div className="mx-auto flex max-w-7xl flex-nowrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
-            <img src="/logo-una.png" alt="Logo UNA Piura" className="h-12 w-12 shrink-0 rounded-full" />
+            <button
+              type="button"
+              onClick={() => navigate('/kiosk')}
+              aria-label="Ir al chat de estudiantes"
+              className="shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+            >
+              <img src="/logo-una.png" alt="Logo UNA Piura" className="h-12 w-12 rounded-full" />
+            </button>
             <div className="min-w-0">
               {/* Sin truncate: en pantallas angostas el texto se lee completo achicando la
                   letra, en vez de cortarse con "...". */}
