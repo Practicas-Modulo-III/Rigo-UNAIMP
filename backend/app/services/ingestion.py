@@ -81,7 +81,12 @@ def extract_text_by_page(path: str) -> list[tuple[int, str]]:
     except Exception:
         pages = []
 
-    if sum(len(text) for _, text in pages) < MIN_CHARS:
+    # Deciding OCR off the SUM across the whole document let a single page with real text (e.g.
+    # a scan service's cover/notice page) mask a book that is otherwise 100% scanned images: the
+    # sum cleared MIN_CHARS, so the other ~100 image-only pages never got OCR'd and the book
+    # indexed with almost nothing. Trigger full-document OCR when most pages are sparse instead.
+    sparse_pages = sum(1 for _, text in pages if len(text) < MIN_CHARS)
+    if not pages or sparse_pages > len(pages) / 2:
         pages = _ocr_pages(path)
     return pages
 
