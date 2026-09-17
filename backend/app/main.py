@@ -10,7 +10,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.config import get_settings
 from app.database import Base, SessionLocal, engine
 from app.models import seed_database
-from app.routers import auth, chat, croquis, documents, feedback, inventory, system
+from app.routers import auth, categories, chat, croquis, documents, feedback, inventory, system
 from app.services.embeddings_factory import EMBEDDING_DIMENSIONS
 
 settings = get_settings()
@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="RIGO UNA v1", version="1.0.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=settings.allowed_origins_list, allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
-for router in (auth.router, chat.router, croquis.router, documents.router, inventory.router, feedback.router, system.router):
+for router in (auth.router, categories.router, chat.router, croquis.router, documents.router, inventory.router, feedback.router, system.router):
     app.include_router(router)
 
 

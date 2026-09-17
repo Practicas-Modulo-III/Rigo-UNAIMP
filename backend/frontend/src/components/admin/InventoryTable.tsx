@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { Edit2, Save, X, Loader2, AlertCircle, CheckCircle, Package, Trash2 } from 'lucide-react';
 import { apiFetch } from '@/services/api';
-import { BOOK_CATEGORIES } from '@/types';
+import { useCategories } from '@/hooks/useCategories';
 
 export interface InventoryItem {
   code: string;
@@ -41,6 +41,7 @@ interface InventoryTableProps {
 }
 
 export function InventoryTable({ authToken }: InventoryTableProps) {
+  const { names: categoryNames } = useCategories();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<Record<string, boolean>>({});
@@ -265,7 +266,7 @@ export function InventoryTable({ authToken }: InventoryTableProps) {
                           onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                           className="w-full min-w-[150px] rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-slate-900 dark:text-white text-sm focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400"
                         >
-                          {BOOK_CATEGORIES.map((cat) => (
+                          {categoryNames.map((cat) => (
                             <option key={cat} value={cat}>{cat}</option>
                           ))}
                         </select>

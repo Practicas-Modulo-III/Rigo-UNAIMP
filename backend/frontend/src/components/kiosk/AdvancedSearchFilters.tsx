@@ -1,17 +1,6 @@
 import { Filter, X } from 'lucide-react';
 import type { BookCategory, SearchFilters } from '@/types';
-
-const CATEGORIES: BookCategory[] = [
-  'Todas',
-  'Talleres y Plástica',
-  'Biografías',
-  'Tesis',
-  'Pintura Piurana',
-  'Artesanías y Folclore',
-  'Escultura',
-  'Historia Regional',
-  'Cerámica',
-];
+import { useCategories } from '@/hooks/useCategories';
 
 const PASILLOS = ['Todos', 'Pasillo 1', 'Pasillo 2', 'Pasillo 3'];
 
@@ -30,6 +19,7 @@ interface AdvancedSearchFiltersProps {
 }
 
 export function AdvancedSearchFilters({ filters, onFiltersChange, onClose }: AdvancedSearchFiltersProps) {
+  const { names: categoryNames } = useCategories();
   const update = (patch: Partial<SearchFilters>) => onFiltersChange({ ...filters, ...patch });
 
   return (
@@ -64,7 +54,8 @@ export function AdvancedSearchFilters({ filters, onFiltersChange, onClose }: Adv
             onChange={(e) => update({ category: e.target.value as BookCategory })}
             className={selectCls}
           >
-            {CATEGORIES.map((c) => (
+            <option value="Todas">Todas</option>
+            {categoryNames.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>

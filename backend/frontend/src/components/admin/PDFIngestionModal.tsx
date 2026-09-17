@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Upload, X, FileText, AlertCircle, CheckCircle, Circle, Library, Loader2, Sparkles, Trash2, Eye, Download } from 'lucide-react';
 import { apiFetch, resolveBackendUrl } from '@/services/api';
-import { BOOK_CATEGORIES } from '@/types';
+import { useCategories } from '@/hooks/useCategories';
 
 /** Fases simuladas del pipeline de ingesta (OCR + vectorización) mostradas mientras se "analiza" el archivo. */
 const ANALYSIS_PHASES = [
@@ -41,6 +41,7 @@ const RIGHTS_STATUS_OPTIONS = [
 
 
 export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionModalProps) {
+  const { names: categoryNames, refresh: refreshCategories } = useCategories();
   const [file, setFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [formData, setFormData] = useState({
@@ -67,6 +68,9 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
   const [fileError, setFileError] = useState<string | null>(null);
   const [selectedLog, setSelectedLog] = useState<IngestionLogEntry | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [creatingCategory, setCreatingCategory] = useState(false);
 
   const [analyzing, setAnalyzing] = useState(false);
   const [completedPhases, setCompletedPhases] = useState(0);
@@ -164,6 +168,32 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) acceptFile(e.target.files[0]);
   }, [acceptFile]);
+
+  const handleCreateCategory = useCallback(async () => {
+    const name = newCategoryName.trim();
+    if (!name) return;
+    setCreatingCategory(true);
+    try {
+      const res = await apiFetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok) {
+        setFormData((current) => ({ ...current, category: name }));
+        setAddingCategory(false);
+        setNewCategoryName('');
+        refreshCategories();
+      } else {
+        setSubmitResult({ success: false, message: data?.detail || 'No se pudo crear la categoría' });
+      }
+    } catch {
+      setSubmitResult({ success: false, message: 'Error de conexión con el servidor' });
+    } finally {
+      setCreatingCategory(false);
+    }
+  }, [newCategoryName, refreshCategories]);
 
   const removeFile = useCallback(() => {
     setFile(null);
@@ -324,18 +354,54 @@ export function PDFIngestionModal({ isOpen, onClose, authToken }: PDFIngestionMo
               <label htmlFor="category" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
                 Categoría *
               </label>
-              <select
-                id="category"
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-900 dark:text-white focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400"
-              >
-                {BOOK_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
+              {addingCategory ? (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    autoFocus
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder="Nombre de la categoría"
+                    maxLength={100}
+                    className="flex-1 rounded-lg border border-emerald-400 bg-white dark:bg-slate-900 px-3 py-2 text-slate-900 dark:text-white focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCreateCategory}
+                    disabled={!newCategoryName.trim() || creatingCategory}
+                    className="rounded-lg bg-emerald-400 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-300 disabled:opacity-50"
+                  >
+                    {creatingCategory ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Guardar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAddingCategory(false); setNewCategoryName(''); }}
+                    className="rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <select
+                  id="category"
+                  value={formData.category}
+                  onChange={(e) => {
+                    if (e.target.value === '__new__') {
+                      setAddingCategory(true);
+                      return;
+                    }
+                    setFormData({ ...formData, category: e.target.value });
+                  }}
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-900 dark:text-white focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400"
+                >
+                  {categoryNames.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                  <option value="__new__">+ Agregar categoría nueva…</option>
+                </select>
+              )}
             </div>
             <div>
               <label htmlFor="year" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">

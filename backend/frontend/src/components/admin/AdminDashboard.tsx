@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Activity, ArrowRight, BookOpen, CheckCircle2, Clock3, FileUp, LayoutDashboard, MapPinned, RefreshCw, ScanLine, ShieldCheck, Sparkles } from 'lucide-react';
+import { Activity, ArrowRight, BookOpen, CheckCircle2, Clock3, FileUp, LayoutDashboard, MapPinned, RefreshCw, ScanLine, ShieldCheck, Sparkles, Tag } from 'lucide-react';
 import { apiFetch } from '@/services/api';
 import { QueryStatsCard } from '@/components/admin/QueryStatsCard';
+import { CategoryManagerModal } from '@/components/admin/CategoryManagerModal';
 
 type AdminSection = 'dashboard' | 'ingestion' | 'inventory' | 'telemetry' | 'croquis';
 
@@ -24,6 +25,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const [data, setData] = useState<DashboardData>(initialData);
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [managingCategories, setManagingCategories] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -91,6 +93,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
             <button type="button" onClick={() => onNavigate('inventory')} className="group flex items-center gap-4 rounded-xl border border-slate-200 p-4 text-left transition hover:border-indigo-400 hover:bg-indigo-50 dark:border-slate-700 dark:hover:bg-indigo-500/10"><span className="rounded-lg bg-indigo-500/10 p-2.5 text-indigo-600 dark:text-indigo-300"><BookOpen className="h-5 w-5" /></span><span className="min-w-0 flex-1"><span className="block font-semibold text-slate-900 dark:text-white">Actualizar inventario</span><span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">Estado de ejemplares</span></span><ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-1 group-hover:text-indigo-600" /></button>
             <button type="button" onClick={() => onNavigate('croquis')} className="group flex items-center gap-4 rounded-xl border border-slate-200 p-4 text-left transition hover:border-rose-400 hover:bg-rose-50 dark:border-slate-700 dark:hover:bg-rose-500/10"><span className="rounded-lg bg-rose-500/10 p-2.5 text-rose-600 dark:text-rose-300"><MapPinned className="h-5 w-5" /></span><span className="min-w-0 flex-1"><span className="block font-semibold text-slate-900 dark:text-white">Editar croquis</span><span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">Ubicaciones y estantes</span></span><ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-1 group-hover:text-rose-600" /></button>
             <button type="button" onClick={() => onNavigate('telemetry')} className="group flex items-center gap-4 rounded-xl border border-slate-200 p-4 text-left transition hover:border-amber-400 hover:bg-amber-50 dark:border-slate-700 dark:hover:bg-amber-500/10"><span className="rounded-lg bg-amber-500/10 p-2.5 text-amber-600 dark:text-amber-300"><Clock3 className="h-5 w-5" /></span><span className="min-w-0 flex-1"><span className="block font-semibold text-slate-900 dark:text-white">Ver telemetría</span><span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">Salud del servidor</span></span><ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-1 group-hover:text-amber-600" /></button>
+            <button type="button" onClick={() => setManagingCategories(true)} className="group flex items-center gap-4 rounded-xl border border-slate-200 p-4 text-left transition hover:border-cyan-400 hover:bg-cyan-50 dark:border-slate-700 dark:hover:bg-cyan-500/10"><span className="rounded-lg bg-cyan-500/10 p-2.5 text-cyan-600 dark:text-cyan-300"><Tag className="h-5 w-5" /></span><span className="min-w-0 flex-1"><span className="block font-semibold text-slate-900 dark:text-white">Gestionar categorías</span><span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">Agregar, renombrar o borrar</span></span><ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-1 group-hover:text-cyan-600" /></button>
           </div>
         </article>
         <article className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -129,6 +132,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           </p>
         </article>
       </div>
+      <CategoryManagerModal isOpen={managingCategories} onClose={() => setManagingCategories(false)} />
     </section>
   );
 }

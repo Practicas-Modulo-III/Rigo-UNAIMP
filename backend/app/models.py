@@ -49,6 +49,13 @@ class Book(Base):
     quantity: Mapped[int] = mapped_column(Integer, default=1)
 
 
+class Category(Base):
+    __tablename__ = "categories"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+
+
 class IngestionLog(Base):
     __tablename__ = "ingestion_logs"
 
@@ -90,7 +97,20 @@ class RAGFeedback(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+# Categorías que ya estaban fijas en el frontend antes de que la tabla `categories` existiera —
+# se siembran una vez para que el catálogo existente (que ya usa estos nombres) no quede huérfano.
+DEFAULT_CATEGORIES = (
+    "Talleres y Plástica", "Biografías", "Tesis", "Pintura Piurana",
+    "Artesanías y Folclore", "Escultura", "Historia Regional", "Cerámica",
+)
+
+
 def seed_database(session: Session, settings: Settings) -> None:
+    if session.scalar(select(Category.id).limit(1)) is None:
+        for name in DEFAULT_CATEGORIES:
+            session.add(Category(name=name))
+        session.commit()
+
     admin_user = session.scalar(select(User).where(User.username == settings.ADMIN_USERNAME))
     if admin_user is None:
         session.add(
