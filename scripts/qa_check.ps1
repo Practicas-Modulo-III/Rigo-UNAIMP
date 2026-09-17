@@ -24,10 +24,13 @@ if ($ExpectLocalMode) {
 }
 
 # Test 1: first event: token must arrive in less than one second in cloud/Groq mode.
-$payload = '{"question":"¿dónde está Giotto?","filters":{"category":"Todas","pasillo":"Todos","year_start":1900,"year_end":2030}}'
+# Payload is written to a temp file and sent via curl's @file syntax because PowerShell 5.1
+# mangles embedded double quotes when a JSON string is passed inline as a native-exe argument.
+$payloadFile = Join-Path $env:TEMP 'rigo_qa_payload.json'
+[System.IO.File]::WriteAllText($payloadFile, '{"question":"¿dónde está Giotto?","filters":{"category":"Todas","pasillo":"Todos","year_start":1900,"year_end":2030}}', [System.Text.UTF8Encoding]::new($false))
 $watch = [System.Diagnostics.Stopwatch]::StartNew()
 $firstTokenMilliseconds = $null
-& curl.exe --no-buffer -sS -N --max-time 30 -X POST "$base/api/chat/stream" -H 'Accept: text/event-stream' -H 'Content-Type: application/json' --data $payload |
+& curl.exe --no-buffer -sS -N --max-time 30 -X POST "$base/api/chat/stream" -H 'Accept: text/event-stream' -H 'Content-Type: application/json' --data "@$payloadFile" |
   ForEach-Object {
     if ($_ -eq 'event: token' -and $null -eq $firstTokenMilliseconds) {
       $firstTokenMilliseconds = $watch.ElapsedMilliseconds
